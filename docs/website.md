@@ -1,10 +1,7 @@
 # Project website
 
-The project website is a dependency-free static site hosted at
-[hugorosario.pt/BrickOS](https://hugorosario.pt/BrickOS/).
-The GitHub Pages address
-[hugorosario.github.io/BrickOS](https://hugorosario.github.io/BrickOS/) redirects
-to the domain inherited from the account's existing Pages configuration.
+The project website is a dependency-free static site prepared for GitHub Pages
+at [hugorosario.github.io/BrickOS](https://hugorosario.github.io/BrickOS/).
 Its source is in `site/`. It uses the curated real-device images already in
 `docs/screenshots/`; the build copies only the captures referenced by the page,
 without editing or resizing them. Most images show Stock++.
@@ -37,6 +34,12 @@ Select **GitHub Actions** as the publishing source in the repository's
 deploys the site after relevant changes are pushed to `main`. It can also be run
 manually from Actions. Only `dist/site/` is uploaded; repository sources, local
 publication controls and firmware release ZIPs are not part of the website.
+
+GitHub project sites inherit a custom domain configured on the account's
+`hugorosario.github.io` Pages site. If that domain points to a different host,
+the default project address redirects there even after a successful deployment.
+Resolve the account-level Pages association or configure a dedicated project
+subdomain and its DNS before treating the public URL as available.
 
 The workflow uses read-only repository access for building. The deployment job
 has the `pages: write` and `id-token: write` permissions required by
