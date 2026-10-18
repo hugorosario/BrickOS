@@ -156,19 +156,18 @@ p {
 }
 
 .wordmark {
-  font-size:27px;
-  font-weight:800;
-  letter-spacing:-1.5px;
   display:inline-flex;
   align-items:center;
-  gap:9px;
+  flex-shrink:0;
+  background:var(--ink);
+  border-radius:4px;
   text-decoration:none;
   line-height:1
 }
 
-.wordmark-dot {
-  color:#43863c;
-  margin-left:-8px
+.wordmark img {
+  width:174px;
+  height:auto
 }
 
 .header nav {
@@ -1019,12 +1018,9 @@ body.dialog-open {
     height:72px;
     gap:16px
   }
-  .wordmark {
-    font-size:24px
-  }
   .wordmark img {
-    width:26px;
-    height:26px
+    width:138px;
+    height:auto
   }
   .header nav {
     gap:17px;

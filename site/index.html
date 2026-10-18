@@ -12,7 +12,7 @@
   <meta property="og:url" content="{{SITE_URL}}">
   <meta property="og:image" content="{{SITE_URL}}screenshots/stockpp-games.png">
   <link rel="canonical" href="{{SITE_URL}}">
-  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="icon" type="image/png" href="logo.png">
   <link rel="stylesheet" href="styles.css">
   <script src="app.js" defer></script>
 </head>
@@ -23,7 +23,7 @@
   </aside>
   <header class="header">
     <div class="wrap header-inner">
-      <a class="wordmark" href="#" aria-label="BrickOS home"><img src="favicon.svg" width="30" height="30" alt="">BrickOS<span class="wordmark-dot">.</span></a>
+      <a class="wordmark" href="#" aria-label="BrickOS home"><img src="logo.png" width="2172" height="724" alt="BrickOS"></a>
       <nav aria-label="Main navigation"><a href="#frontends">Frontends</a><a href="#features">Features</a><a href="#components">Components</a><a class="nav-source" href="https://github.com/hugorosario/BrickOS">GitHub <span aria-hidden="true">↗</span></a></nav>
       <a class="button button-small" href="#get-started">Get started <span aria-hidden="true">↓</span></a>
     </div>
@@ -97,7 +97,7 @@
 
     <section class="section wrap faq" aria-labelledby="faq-title"><div><p class="eyebrow">A FEW USEFUL ANSWERS</p><h2 id="faq-title">Before you start.</h2></div><div class="faq-list"><details><summary>Is this a complete replacement firmware?<span aria-hidden="true">+</span></summary><p>No. BrickOS reimplements selected frontend and system components, running alongside the device’s stock firmware. The original kernel, drivers, services and emulator stack remain in use.</p></details><details><summary>What does “experimental” mean here?<span aria-hidden="true">+</span></summary><p>The alternative BrickOS frontend is actively being developed. Appearance, features and device integration are evolving. Stock++ is the familiar stock-style presentation of the same reimplemented MainUI.</p></details><details><summary>Are these screenshots from a real Brick?<span aria-hidden="true">+</span></summary><p>Yes. These are native 1024 × 768 captures from a real TrimUI Brick. Most show Stock++; the BrickOS desktop comes from an earlier development build. Game names and game imagery are obscured where present. <a href="https://github.com/hugorosario/BrickOS/blob/main/docs/screenshots.md">Read the capture provenance.</a></p></details><details><summary>Where can I report a bug or contribute?<span aria-hidden="true">+</span></summary><p>Use <a href="https://github.com/hugorosario/BrickOS/issues">GitHub Issues</a> for reproducible bugs and improvements. Include your device, release and component versions, steps to reproduce and useful logs. Source and build instructions are in the repository.</p></details></div></section>
   </main>
-  <footer class="footer"><div class="wrap footer-inner"><a class="wordmark" href="#" aria-label="Back to the top"><img src="favicon.svg" width="27" height="27" alt="">BrickOS<span class="wordmark-dot">.</span></a><p>An independent project for the TrimUI Brick.<br>Open source. Still exploring.</p><nav aria-label="Footer navigation"><a href="https://github.com/hugorosario/BrickOS">Source <span aria-hidden="true">↗</span></a><a href="https://github.com/hugorosario/BrickOS/issues">Issues <span aria-hidden="true">↗</span></a><a href="https://github.com/hugorosario/BrickOS/blob/main/LICENSE">Apache 2.0 <span aria-hidden="true">↗</span></a></nav></div></footer>
+  <footer class="footer"><div class="wrap footer-inner"><a class="wordmark" href="#" aria-label="Back to the top"><img src="logo.png" width="2172" height="724" alt="BrickOS"></a><p>An independent project for the TrimUI Brick.<br>Open source. Still exploring.</p><nav aria-label="Footer navigation"><a href="https://github.com/hugorosario/BrickOS">Source <span aria-hidden="true">↗</span></a><a href="https://github.com/hugorosario/BrickOS/issues">Issues <span aria-hidden="true">↗</span></a><a href="https://github.com/hugorosario/BrickOS/blob/main/LICENSE">Apache 2.0 <span aria-hidden="true">↗</span></a></nav></div></footer>
   <dialog id="capture-dialog" class="capture-dialog" aria-label="Enlarged device capture"><div class="dialog-toolbar"><span>CAPTURED ON A REAL TRIMUI BRICK</span><button type="button" id="close-capture" aria-label="Close enlarged capture">Close <span aria-hidden="true">×</span></button></div><img id="dialog-image" width="1024" height="768" alt=""><p id="dialog-caption"></p></dialog>
 </body>
 </html>

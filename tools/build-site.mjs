@@ -22,7 +22,7 @@ if (/\{\{[A-Z_]+\}\}/.test(html)) throw new Error('Unresolved website placeholde
 const images = [...new Set([...html.matchAll(/(?:screenshots\/|data-image=")([a-z0-9-]+\.png)/g)].map(m=>m[1]))];
 if (!images.length || images.filter(n=>n.startsWith('stockpp-')).length <= images.length/2) throw new Error('Use a majority of Stock++ screenshots');
 await mkdir(out,{recursive:true});
-for (const name of ['styles.css','app.js','favicon.svg']) await copyFile(join(source,name),join(out,name));
+for (const name of ['styles.css','app.js','logo.png']) await copyFile(join(source,name),join(out,name));
 await writeFile(join(out,'404.html'),render(await readFile(join(source,'404.html'),'utf8')));
 await writeFile(join(out,'index.html'),html);
 await writeFile(join(out,'.nojekyll'),'');
