@@ -19,6 +19,10 @@ choice. I am not seeking opinions on that choice and will not engage in debates
 about the use of AI. Please keep issues and discussions focused on the project's
 behavior, bugs and improvements.
 
+[Project website](https://hugorosario.github.io/BrickOS/) ·
+[Latest release](https://github.com/hugorosario/BrickOS/releases/latest) ·
+[Website build and hosting](docs/website.md)
+
 ## Components and differences from stock
 
 BrickOS runs alongside the stock firmware's services. It replaces selected
