@@ -2,6 +2,7 @@
 import {readFile, writeFile, mkdir, copyFile, lstat} from 'node:fs/promises';
 import {resolve, dirname, join, relative, isAbsolute} from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {createHash} from 'node:crypto';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
 if (args.length && (args.length !== 2 || args[0] !== '--out')) throw new Error('Usage: node tools/build-site.mjs [--out DIR]');
@@ -18,6 +19,11 @@ if (siteUrl.username || siteUrl.password || siteUrl.search || siteUrl.hash) thro
 if (!siteUrl.pathname.endsWith('/')) siteUrl.pathname += '/';
 const render = text => text.replaceAll('{{VERSION}}', config.release).replaceAll('{{SITE_URL}}', siteUrl.href);
 let html = render(await readFile(join(source,'index.html'),'utf8'));
+// Change asset URLs with their contents so returning browsers receive the current styles/scripts.
+for (const file of ['styles.css', 'app.js']) {
+  const revision = createHash('sha256').update(await readFile(join(source, file))).digest('hex').slice(0, 12);
+  html = html.replaceAll(`"${file}"`, `"${file}?v=${revision}"`);
+}
 if (/\{\{[A-Z_]+\}\}/.test(html)) throw new Error('Unresolved website placeholder');
 const images = [...new Set([...html.matchAll(/(?:screenshots\/|data-image=")([a-z0-9-]+\.png)/g)].map(m=>m[1]))];
 if (!images.length || images.filter(n=>n.startsWith('stockpp-')).length <= images.length/2) throw new Error('Use a majority of Stock++ screenshots');
