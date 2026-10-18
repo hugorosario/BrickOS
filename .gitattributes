@@ -1,0 +1,4 @@
+# Scripts and sources run on the Brick and in Linux containers, so they keep LF endings.
+* text=auto eol=lf
+*.png binary
+*.bmp binary

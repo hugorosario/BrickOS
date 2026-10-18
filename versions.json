@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "release": "0.1.2",
+  "components": {
+    "mainui": "0.1.1",
+    "inputd": "0.1.0",
+    "osdd": "0.1.0",
+    "ledd": "0.1.0",
+    "tmenu": "0.1.0",
+    "gameswitcher": "0.1.0",
+    "uninstall": "0.1.0",
+    "updater": "0.1.1",
+    "setup": "0.1.0",
+    "assets": "0.1.0"
+  }
+}

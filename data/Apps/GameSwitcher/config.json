@@ -1,0 +1,5 @@
+{
+  "label": "GameSwitcher",
+  "icon": "icon.png",
+  "launch": "launch.sh"
+}

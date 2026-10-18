@@ -1,0 +1,5 @@
+{
+  "label": "Uninstall BrickOS",
+  "icon": "icon.png",
+  "launch": "launch.sh"
+}

@@ -1,0 +1,24 @@
+{
+  "title": "Updates",
+  "icon": "icon.png",
+  "menu": [
+    { "label": "BrickOS release", "type": "info", "value": "{{update_release}}", "load": "sh ./menu.sh status" },
+    { "label": "Installed build", "type": "info", "value": "{{update_installed}}", "load": "sh ./menu.sh status" },
+    { "label": "Status", "type": "info", "value": "{{update_status}}", "load": "sh ./menu.sh status" },
+    { "label": "Automatic checks", "type": "toggle", "selected": 1, "load": "sh ./menu.sh auto-status", "execute": "sh ./menu.sh auto", "description": "Check public GitHub releases every six hours. Installation always asks first." },
+    { "label": "Check now", "type": "cmd", "execute": "./brickos-update check", "output": "line" },
+    { "label": "Install update", "type": "cmd", "execute": "./brickos-update prepare", "output": "full", "description": "Confirm the download, then restart when convenient to install the verified package." },
+    { "label": "Component versions", "type": "menu", "menu": [
+      { "label": "MainUI / Stock++ / BrickOS", "type": "info", "value": "{{version_mainui}}", "load": "sh ./menu.sh status" },
+      { "label": "Input daemon", "type": "info", "value": "{{version_inputd}}" },
+      { "label": "OSD", "type": "info", "value": "{{version_osdd}}" },
+      { "label": "LED daemon", "type": "info", "value": "{{version_ledd}}" },
+      { "label": "In-game menu", "type": "info", "value": "{{version_tmenu}}" },
+      { "label": "GameSwitcher", "type": "info", "value": "{{version_gameswitcher}}" },
+      { "label": "Uninstaller", "type": "info", "value": "{{version_uninstall}}" },
+      { "label": "Updater", "type": "info", "value": "{{version_updater}}" },
+      { "label": "Setup", "type": "info", "value": "{{version_setup}}" },
+      { "label": "Visual assets", "type": "info", "value": "{{version_assets}}" }
+    ] }
+  ]
+}
