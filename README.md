@@ -1,5 +1,7 @@
 # BrickOS
 
+<img src="site/logo.png" alt="BrickOS" width="480">
+
 The project is an open-source C/SDL2 reimplementation of the TrimUI Brick's stock
 frontend and related system binaries, built through reverse engineering and measured
 device behavior. Features, appearance and device
