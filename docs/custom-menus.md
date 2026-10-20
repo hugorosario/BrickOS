@@ -86,6 +86,9 @@ remain cancellable. A failed load leaves the existing displayed state unchanged.
 For confirmation, a script prints `confirm:Your question` and reads stdin.
 MainUI sends `A` plus a newline for confirmation, or `B` plus a newline for cancel.
 The script must perform its operation only after the appropriate reply.
+A question wider than the dialog is broken at spaces over up to three lines, in Stock++
+and BrickOS. Only one that needs more than three lines ends its third line with "...".
+Before 0.1.4 every question was cut to one line.
 
 ## Extending a built-in section
 

@@ -34,4 +34,18 @@ int inputd_power_mainui_active(const char *proc_root);
 // proc_root cannot be scanned.
 int inputd_power_brickos_osd_active(const char *proc_root);
 
+// The same answers for a caller that asks every few milliseconds. A full scan opens every
+// process's files, about 13 ms on the Brick, so a watch keeps the PID its last scan matched and
+// rechecks only that process while it lives. When it is gone, a full scan runs at once. While no
+// process matches, a full scan runs at most every rescan_ms and the answer in between stays 0.
+// now is any monotonic time in milliseconds. A zeroed watch scans on its first call.
+struct inputd_process_watch {
+    int pid;
+    long long rescan_at;
+};
+int inputd_power_mainui_watch(const char *proc_root, struct inputd_process_watch *watch, long long now,
+                              int rescan_ms);
+int inputd_power_brickos_osd_watch(const char *proc_root, struct inputd_process_watch *watch, long long now,
+                                   int rescan_ms);
+
 #endif

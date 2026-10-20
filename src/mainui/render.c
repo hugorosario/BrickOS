@@ -1210,6 +1210,7 @@ static const char *ext_label(struct mainui_frontend *fe, int node, char *out, si
 
 static int language_is_portuguese(const struct mainui_frontend *fe);
 static const char *mapping_text(const struct mainui_frontend *fe, const char *english);
+static const char *prompt_lines(const struct mainui_font *font, const char *s, int width, char *out, size_t size);
 #define MAPPING_SAVE_FAILED_TEXT "Could not save the button mapping.\nPrevious mapping kept."
 
 // A row's value as text: a toggle's state, a select's choice, a range's number, an info row's
@@ -1903,7 +1904,7 @@ static void dialog_window(struct mainui_renderer *r, struct mainui_frontend *fe,
                        mapping ? mapping_text(fe, "Reset") :
                        power ? (pt ? "Energia" : "Power") :
                                  say(fe, texts[w->dialog].title, texts[w->dialog].title_text), 512, 183 + dy, r->title_color, CENTER);
-    if (extension) shorten(&r->popup_text, fe->ext_confirm, 820, message, sizeof(message));
+    if (extension) prompt_lines(&r->popup_text, fe->ext_confirm, 820, message, sizeof(message));
     else if (mapping) snprintf(message, sizeof(message), "%s", mapping_text(fe, "Remove all button mappings?"));
     else if (power) snprintf(message, sizeof(message), "%s", pt ? "Desligar ou reiniciar?" : "Power off or reboot?");
     else snprintf(message, sizeof(message), "%s", say(fe, texts[w->dialog].message, texts[w->dialog].message_text));
@@ -4840,6 +4841,33 @@ static void wrap_lines(const struct mainui_font *font, char *message, int width)
     }
 }
 
+// A settings extension's confirm: prompt for its dialog: broken at spaces into lines of width, at
+// most three. What a fourth line would hold joins the third, which then ends with "..."; a word
+// wider than width is shortened too.
+static const char *prompt_lines(const struct mainui_font *font, const char *s, int width, char *out, size_t size) {
+    char wrapped[512];
+    snprintf(wrapped, sizeof(wrapped), "%s", s ? s : "");
+    wrap_lines(font, wrapped, width);
+    if (!size) return out;
+    out[0] = 0;
+    char *line = wrapped;
+    for (int i = 0; i < 3 && line; ++i) {
+        char *end = strchr(line, '\n');
+        if (end && i == 2) {
+            for (char *p = end; *p; ++p)
+                if (*p == '\n') *p = ' ';
+            end = NULL;
+        }
+        if (end) *end = 0;
+        char piece[512];
+        shorten(font, line, width, piece, sizeof(piece));
+        size_t used = strlen(out);
+        snprintf(out + used, size - used, "%s%s", i ? "\n" : "", piece);
+        line = end ? end + 1 : NULL;
+    }
+    return out;
+}
+
 static void material_message_lines(struct mainui_renderer *r, const struct mainui_font *font,
                                    const char *message, int center_x, int top, int width, int height,
                                    SDL_Color color) {
@@ -4926,7 +4954,7 @@ static void material_dialog_window(struct mainui_renderer *r, struct mainui_fron
                         appearance ? mainui_appearance_text("Reset appearance?", portuguese) :
                         power ? (portuguese ? "Energia" : "Power") :
                                   say(fe, texts[w->dialog].title, texts[w->dialog].title_text);
-    const char *message = extension ? shorten(&r->popup_text, fe->ext_confirm, 680, extension_message, sizeof(extension_message)) :
+    const char *message = extension ? prompt_lines(&r->popup_text, fe->ext_confirm, width - 60, extension_message, sizeof(extension_message)) :
                           mapping ? mapping_text(fe, "Remove all button mappings?") :
                           appearance ? mainui_appearance_text("Every option returns to its default.", portuguese) :
                           power ? (portuguese ? "Desligar ou reiniciar?" : "Power off or reboot?") :

@@ -46,6 +46,9 @@ BRICKOS_DECLARE_COMPONENT("inputd", BRICKOS_VERSION_INPUTD);
 #define FN_VALUE "/sys/class/gpio/gpio243/value"
 #define DISP_LCD_GET_BRIGHTNESS 0x103
 #define POWER_OWNER_POLL_MS 50
+// While no MainUI (a game runs) or no BrickOS OSD is found, /proc is scanned again at most this
+// often. Rescanning every poll took about half a CPU core on the Brick (2026-10-20).
+#define POWER_OWNER_RESCAN_MS 500
 
 enum { EXIT_USAGE = 2, EXIT_CONFIG = 3, EXIT_GPIO = 4, EXIT_UINPUT = 5, EXIT_WRITE = 6 };
 
@@ -487,6 +490,7 @@ static int run(const char *config_path, const char *health_path, long run_for_ms
     int mainui_active = 0, power_owner = 0, proc_error_reported = 0;
     long long power_retry_at = now_ms();
     long long power_owner_poll_at = 0;
+    struct inputd_process_watch mainui_watch = {0}, osd_watch = {0};
     struct health h = {
         .path = health_path,
         .power_state = inputd_power_state_name(power_engine.state),
@@ -515,10 +519,10 @@ static int run(const char *config_path, const char *health_path, long run_for_ms
                 power_engine.sequence=sequence;
             }
 #endif
-            int mainui = inputd_power_mainui_active("/proc");
+            int mainui = inputd_power_mainui_watch("/proc", &mainui_watch, power_now, POWER_OWNER_RESCAN_MS);
             // Only BrickOS's OSD consumes the power-hold marker. With the official OSD,
             // or a fallback to it, MainUI keeps POWER for its own dialog.
-            int osd = mainui > 0 ? inputd_power_brickos_osd_active("/proc") : 0;
+            int osd = mainui > 0 ? inputd_power_brickos_osd_watch("/proc", &osd_watch, power_now, POWER_OWNER_RESCAN_MS) : 0;
             if (mainui >= 0 && osd >= 0) {
                 // 0: stock keymon (no MainUI), 1: BrickOS, 2: MainUI's own dialog.
                 int owner = !mainui ? 0 : osd ? 1 : 2;

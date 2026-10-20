@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "release": "0.1.3",
+  "release": "0.1.4",
   "components": {
-    "mainui": "0.1.2",
-    "inputd": "0.1.1",
+    "mainui": "0.1.3",
+    "inputd": "0.1.2",
     "osdd": "0.1.0",
     "ledd": "0.1.0",
     "tmenu": "0.1.0",
     "gameswitcher": "0.1.1",
     "uninstall": "0.1.1",
-    "updater": "0.1.2",
+    "updater": "0.1.3",
     "setup": "0.1.1",
     "assets": "0.1.1"
   }

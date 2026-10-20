@@ -125,7 +125,11 @@ handles replacement of the input controller, keeps volume controls available in
 its card view, and reserves boot resume for a committed long-POWER shutdown. It now
 takes every compatible RetroArch launcher, including a system's other emulators, so
 systems such as Mega Drive and Super Famicom use it too. The updater verifies GitHub with
-the firmware's CA bundle and retries a failed automatic check after a minute.
+the firmware's CA bundle and retries a failed automatic check after a minute. Its
+notification and long Settings confirmations now show their whole text instead of
+ending with "...". The input daemon now finds MainUI and the OSD by rechecking the
+processes it already found. It used to scan every process 20 times a second, which took
+about half a CPU core and kept the processor at full speed at Home.
 The in-game menu keeps focus on Save after saving. These improve BrickOS's own
 components; they are not presented as defects in equivalent stock features.
 

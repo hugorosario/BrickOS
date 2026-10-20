@@ -61,7 +61,8 @@ static int live_brickos_osd(const char *proc_root, const char *pid) {
            strncmp(target, e2e, sizeof(e2e) - 1) == 0;
 }
 
-static int any_process(const char *proc_root, int (*match)(const char *, const char *)) {
+// found, when given, gets the matching process's PID.
+static int any_process(const char *proc_root, int (*match)(const char *, const char *), int *found) {
     if (proc_root == NULL || proc_root[0] != '/') { errno = EINVAL; return -1; }
     DIR *directory = opendir(proc_root);
     if (directory == NULL) return -1;
@@ -75,6 +76,7 @@ static int any_process(const char *proc_root, int (*match)(const char *, const c
             return 0;
         }
         if (process_id_name(entry->d_name) && match(proc_root, entry->d_name)) {
+            if (found != NULL) *found = atoi(entry->d_name);
             closedir(directory);
             return 1;
         }
@@ -82,11 +84,39 @@ static int any_process(const char *proc_root, int (*match)(const char *, const c
 }
 
 int inputd_power_mainui_active(const char *proc_root) {
-    return any_process(proc_root, live_mainui);
+    return any_process(proc_root, live_mainui, NULL);
 }
 
 int inputd_power_brickos_osd_active(const char *proc_root) {
-    return any_process(proc_root, live_brickos_osd);
+    return any_process(proc_root, live_brickos_osd, NULL);
+}
+
+static int watch_process(const char *proc_root, struct inputd_process_watch *watch, long long now, int rescan_ms,
+                         int (*match)(const char *, const char *)) {
+    if (proc_root == NULL || proc_root[0] != '/') { errno = EINVAL; return -1; }
+    if (watch->pid > 0) {
+        char pid[16];
+        snprintf(pid, sizeof(pid), "%d", watch->pid);
+        if (match(proc_root, pid)) return 1;
+        // Gone or no longer a match: another one may run (MainUI's wrapper and its program).
+        watch->pid = 0;
+        watch->rescan_at = now;
+    }
+    if (now < watch->rescan_at) return 0;
+    int found = 0, result = any_process(proc_root, match, &found);
+    if (result == 1) watch->pid = found;
+    else watch->rescan_at = now + rescan_ms;
+    return result;
+}
+
+int inputd_power_mainui_watch(const char *proc_root, struct inputd_process_watch *watch, long long now,
+                              int rescan_ms) {
+    return watch_process(proc_root, watch, now, rescan_ms, live_mainui);
+}
+
+int inputd_power_brickos_osd_watch(const char *proc_root, struct inputd_process_watch *watch, long long now,
+                                   int rescan_ms) {
+    return watch_process(proc_root, watch, now, rescan_ms, live_brickos_osd);
 }
 
 #define INPUTD_KEY_WORDS ((KEY_MAX + 1 + (8 * sizeof(unsigned long) - 1)) / (8 * sizeof(unsigned long)))

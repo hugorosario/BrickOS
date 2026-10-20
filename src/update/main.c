@@ -163,10 +163,11 @@ static int latest(struct update_release *release,int notify) {
             if(!update_path(toast,"%s/trimui_osd",temporary) && !update_safe_path(toast) && !stat(toast,&st) && S_ISDIR(st.st_mode) &&
                 !update_path(toast,"%s/trimui_osd/osd_toast_msg",temporary)) {
                 // Every field the OSD draws from: it starts a toast at zero duration and size,
-                // so a record without them is never shown. MainUI's wide bottom box, as
-                // GameSwitcher's notices use it.
+                // so a record without them is never shown. The OSD's widest toast (bg_msg_w4,
+                // 1000 pixels), centered at MainUI's bottom notices: in the 600-pixel one the
+                // text did not fit, and the BrickOS look cut it with "...".
                 static const char message_json[]="{\"type\":\"default\",\"id\":\"com.brickos.update\",\"duration\":4000,"
-                    "\"size\":2,\"x\":212,\"y\":550,\"w\":600,\"h\":80,\"message\":\"Update available in Settings > Updates\"}\n";
+                    "\"size\":3,\"x\":12,\"y\":550,\"w\":1000,\"h\":80,\"message\":\"Update available in Settings > Updates\"}\n";
                 if(!update_write(toast,message_json,sizeof(message_json)-1))put("notified-asset",id);
             }
         }

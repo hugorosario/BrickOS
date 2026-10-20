@@ -20,10 +20,12 @@ setup. Both Stock++ and BrickOS then show **Settings → Updates**:
   downloads and prepares the package; installation happens at the next normal boot.
   The updater never reboots or stops a game automatically.
 
-A newly discovered release raises an OSD toast pointing to Settings → Updates, in the
-wide bottom box of MainUI's notices: the record names every field the OSD draws from
-(duration, size and box), since the OSD starts a toast at zero and would not show it.
-The confirmation shows the release tag. Drafts, prereleases, ambiguous package
+A newly discovered release raises an OSD toast pointing to Settings → Updates. It uses
+the OSD's widest toast: 1000 pixels, centered at the height of MainUI's bottom notices.
+There "Update available in Settings > Updates" fits on one line in the stock and BrickOS
+looks; the 600-pixel toast used before 0.1.4 cut it to "Update available in Settings > Up...".
+The record names every field the OSD draws from (duration, size and box), since the OSD
+starts a toast at zero and would not show it. The confirmation shows the release tag. Drafts, prereleases, ambiguous package
 assets and releases without a SHA-256 digest are not installable. No published
 stable release is a normal status, not an installation error.
 
