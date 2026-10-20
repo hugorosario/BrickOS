@@ -23,16 +23,20 @@ links, social metadata and the 404-page home link. Local builds default to the
 GitHub Pages address; `SITE_URL` can override it when needed.
 
 Edit `site/index.html`, `site/styles.css` and `site/app.js` to update the content,
-appearance and interactions. The displayed version is read from `versions.json`
-during the build. Download links lead to GitHub's latest release page, keeping
-release notes and the correct package available to visitors.
+appearance and interactions. The displayed version is the latest published
+release. The workflow reads its tag from GitHub and passes it as `SITE_VERSION`,
+because the sources' `versions.json` may already name the next release. A local
+build without `SITE_VERSION` shows the version in `versions.json`. Download links
+lead to GitHub's latest release page, keeping release notes and the correct package
+available to visitors.
 
 ## GitHub Pages
 
 Select **GitHub Actions** as the publishing source in the repository's
 **Settings → Pages**. The workflow in `.github/workflows/pages.yml` builds and
-deploys the site after relevant changes are pushed to `main`. It can also be run
-manually from Actions. Only `dist/site/` is uploaded; repository sources, local
+deploys the site after relevant changes are pushed to `main`, and when a release
+is published. It always builds the site from `main`. It can also be run manually
+from Actions. Only `dist/site/` is uploaded; repository sources, local
 publication controls and firmware release ZIPs are not part of the website.
 
 GitHub project sites inherit a custom domain configured on the account's

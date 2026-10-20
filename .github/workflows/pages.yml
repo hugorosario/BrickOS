@@ -7,8 +7,10 @@ on:
       - 'site/**'
       - 'tools/build-site.mjs'
       - 'docs/screenshots/**'
-      - 'versions.json'
       - '.github/workflows/pages.yml'
+  # The site shows the latest published release, so a new release rebuilds it.
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
@@ -25,16 +27,29 @@ jobs:
       contents: read
       pages: read
     steps:
+      # The site comes from main also when a release triggers the build.
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
       - uses: actions/setup-node@v6
         with:
           node-version: '24'
       - uses: actions/configure-pages@v5
         id: pages
+      # versions.json may already name the next release; the site shows the published one.
+      - name: Find the latest published release
+        id: release
+        run: |
+          tag=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
+          test -n "$tag"
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
       - name: Build static website
         run: node tools/build-site.mjs
         env:
           SITE_URL: ${{ steps.pages.outputs.base_url }}
+          SITE_VERSION: ${{ steps.release.outputs.version }}
       - uses: actions/upload-pages-artifact@v4
         with:
           path: dist/site

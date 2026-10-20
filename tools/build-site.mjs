@@ -10,14 +10,17 @@ const out = resolve(root, args[1] || 'dist/site');
 const source = join(root, 'site');
 const outputLocation = relative(join(root, 'dist'), out);
 if (!outputLocation || outputLocation.startsWith('..') || isAbsolute(outputLocation)) throw new Error('Choose a dedicated output folder inside dist/');
-const config = JSON.parse(await readFile(join(root, 'versions.json'), 'utf8'));
-if (!/^\d+\.\d+\.\d+$/.test(config.release)) throw new Error('Expected a release version');
+// The version shown is the latest published release, which the Pages workflow passes as
+// SITE_VERSION: the sources' versions.json may already name the next one. A local build without
+// it shows versions.json's.
+const version = process.env.SITE_VERSION || JSON.parse(await readFile(join(root, 'versions.json'), 'utf8')).release;
+if (!/^\d+\.\d+\.\d+$/.test(version)) throw new Error('Expected a release version');
 const siteUrl = new URL(process.env.SITE_URL || 'https://hugorosario.github.io/BrickOS/');
 if (!['http:', 'https:'].includes(siteUrl.protocol)) throw new Error('SITE_URL must use HTTP or HTTPS');
 siteUrl.protocol = 'https:';
 if (siteUrl.username || siteUrl.password || siteUrl.search || siteUrl.hash) throw new Error('SITE_URL must be a public base URL without credentials, query or hash');
 if (!siteUrl.pathname.endsWith('/')) siteUrl.pathname += '/';
-const render = text => text.replaceAll('{{VERSION}}', config.release).replaceAll('{{SITE_URL}}', siteUrl.href);
+const render = text => text.replaceAll('{{VERSION}}', version).replaceAll('{{SITE_URL}}', siteUrl.href);
 let html = render(await readFile(join(source,'index.html'),'utf8'));
 // Change asset URLs with their contents so returning browsers receive the current styles/scripts.
 for (const file of ['styles.css', 'app.js']) {
@@ -40,4 +43,4 @@ for (const name of images) {
   if(bytes.readUInt32BE(16)!==1024||bytes.readUInt32BE(20)!==768) throw new Error(`Unexpected screenshot size: ${name}`);
   await copyFile(path,join(out,'screenshots',name));
 }
-console.log(`Built BrickOS v${config.release}: ${images.length} original device captures → ${out}`);
+console.log(`Built BrickOS v${version}:${images.length} original device captures → ${out}`);
