@@ -53,11 +53,27 @@ static int run_curl(const char *url,const char *output,uint64_t limit,int packag
     if(pid==0) {
         close(response[0]);dup2(response[1],STDOUT_FILENO);close(response[1]);
         struct rlimit bounds={(rlim_t)limit,(rlim_t)limit};if(setrlimit(RLIMIT_FSIZE,&bounds))_exit(126);
-        execlp("curl","curl","--disable","--fail","--silent","--show-error","--location",
+        const char *argv[40];int n=0;
+        const char *const common[]={"curl","--disable","--fail","--silent","--show-error","--location",
             "--proto","=https","--proto-redir","=https","--tlsv1.2","--connect-timeout","15",
-            "--max-time",package?"1200":"30","--max-filesize",maximum,
-            "--user-agent","BrickOS-Updater/1","--header","Accept: application/vnd.github+json",
-            "--header","X-GitHub-Api-Version: 2022-11-28","--write-out","%{http_code}","--output",output,url,(char *)NULL);
+            "--max-filesize",maximum,"--user-agent","BrickOS-Updater/1"};
+        for(size_t i=0;i<sizeof(common)/sizeof(*common);++i)argv[n++]=common[i];
+        // The firmware's curl has no default CA bundle and fails every verification; its own
+        // bundle is named, so TLS verification stays on.
+        static const char *const bundles[]={"/etc/ssl/certs/ca-certificates.crt","/etc/ssl/cert.pem"};
+        for(size_t i=0;i<sizeof(bundles)/sizeof(*bundles);++i) {
+            struct stat st;if(stat(bundles[i],&st) || !S_ISREG(st.st_mode))continue;
+            argv[n++]="--cacert";argv[n++]=bundles[i];break;
+        }
+        argv[n++]="--max-time";argv[n++]=package?"1200":"30";
+        // The API's headers go only to the API: the package download follows redirects to
+        // GitHub's asset storage, which must not receive them.
+        if(!package) {
+            argv[n++]="--header";argv[n++]="Accept: application/vnd.github+json";
+            argv[n++]="--header";argv[n++]="X-GitHub-Api-Version: 2022-11-28";
+        }
+        argv[n++]="--write-out";argv[n++]="%{http_code}";argv[n++]="--output";argv[n++]=output;argv[n++]=url;argv[n]=NULL;
+        execvp("curl",(char *const *)argv);
         _exit(127);
     }
     close(response[1]);char code[16]={0};size_t at=0;
@@ -80,8 +96,32 @@ static int operation_lock(void) {
     char path[UPDATE_PATH];if(file_path(path,"operation.lock"))return -1;
     int fd=lock_file(path);if(fd<0)update_error("Another update operation is running");return fd;
 }
+// A prepared update counts while the build it was prepared from is still the enabled one and its
+// stage is there. A package installed by hand since then, or a stage gone, makes it stale: with
+// DROP it is removed and the status says so.
+static int pending_current(int drop) {
+    char pending[32],from[32],current[13],path[UPDATE_PATH];
+    get("pending",pending,sizeof(pending));if(!exists("pending"))return 0;
+    get("pending-from",from,sizeof(from));installed(current);
+    if(strlen(pending)==12 && update_hex(pending,12) && (!from[0] || !strcmp(from,current)) &&
+        !update_path(path,"%s/packages/%s",state,pending) && access(path,F_OK)==0)return 1;
+    if(drop) {
+        remove_file("pending-from");remove_file("pending");
+        set_state("Prepared update dropped: another build is installed");
+    }
+    return 0;
+}
+// The installed component metadata counts only when the enabled build's own package carries
+// it: a package installed by hand without metadata leaves an older BrickOS/versions.json behind.
+// PATH gets BrickOS/versions.json; returns 1 when it counts, 0 for a legacy install.
+static int current_metadata(char *path) {
+    char build[13],package[UPDATE_PATH];installed(build);
+    if(!build[0] || update_path(path,"%s/BrickOS/versions.json",sd))return 0;
+    if(!update_path(package,"%s/BrickOS/package/%s/versions.json",sd,build) && update_regular(package))return 1;
+    return !update_path(package,"%s/packages/%s/BrickOS/package/%s/versions.json",state,build,build) && update_regular(package);
+}
 static int latest(struct update_release *release,int notify) {
-    if(exists("pending")){puts("An update is already prepared for the next boot.");return 0;}
+    if(pending_current(1)){puts("An update is already prepared for the next boot.");return 0;}
     char path[UPDATE_PATH];if(file_path(path,"release.tmp-XXXXXX"))return -1;
     int fd=mkstemp(path);if(fd<0)return -1;close(fd);
     int result=run_curl(UPDATE_API,path,512*1024,0);
@@ -89,10 +129,9 @@ static int latest(struct update_release *release,int notify) {
     if(!result)result=update_parse_release(path,release);
     if(result){unlink(path);set_state("Check failed; retry when online");return -1;}
     char installed_metadata[UPDATE_PATH];struct update_versions current_versions;int versioned=0;
-    if(update_path(installed_metadata,"%s/BrickOS/versions.json",sd)){unlink(path);return -1;}
-    if(update_safe_path(installed_metadata)){unlink(path);return -1;}
-    struct stat metadata_stat;
-    if(!lstat(installed_metadata,&metadata_stat)) {
+    struct stat metadata_stat;int counted=current_metadata(installed_metadata);
+    if(counted && update_safe_path(installed_metadata)){unlink(path);return -1;}
+    if(counted && !lstat(installed_metadata,&metadata_stat)) {
         if(!S_ISREG(metadata_stat.st_mode)){unlink(path);return update_error("Installed component metadata is not a regular file");}
         if(update_versions_load(installed_metadata,&current_versions)){unlink(path);return -1;}
         versioned=1;int order;
@@ -123,7 +162,11 @@ static int latest(struct update_release *release,int notify) {
             char toast[UPDATE_PATH];struct stat st;
             if(!update_path(toast,"%s/trimui_osd",temporary) && !update_safe_path(toast) && !stat(toast,&st) && S_ISDIR(st.st_mode) &&
                 !update_path(toast,"%s/trimui_osd/osd_toast_msg",temporary)) {
-                static const char message_json[]="{\"type\":\"info\",\"id\":\"brickos-update\",\"message\":\"BrickOS update available: Settings > Updates\"}\n";
+                // Every field the OSD draws from: it starts a toast at zero duration and size,
+                // so a record without them is never shown. MainUI's wide bottom box, as
+                // GameSwitcher's notices use it.
+                static const char message_json[]="{\"type\":\"default\",\"id\":\"com.brickos.update\",\"duration\":4000,"
+                    "\"size\":2,\"x\":212,\"y\":550,\"w\":600,\"h\":80,\"message\":\"Update available in Settings > Updates\"}\n";
                 if(!update_write(toast,message_json,sizeof(message_json)-1))put("notified-asset",id);
             }
         }
@@ -139,7 +182,8 @@ static int verify(const char *build) {
     char directory[UPDATE_PATH],zip[UPDATE_PATH],metadata[UPDATE_PATH];struct update_release release;
     if(stage_paths(build,directory,zip,metadata) || update_parse_release(metadata,&release) || strcmp(build,release.build))return -1;
     if(update_stage(zip,directory,&release,1))return -1;
-    return update_versions_stage(directory,sd,&release);
+    char installed_metadata[UPDATE_PATH];
+    return update_versions_stage(directory,current_metadata(installed_metadata)?installed_metadata:NULL,&release);
 }
 // Only used on reserved, updater-owned staging/package directories, never on user data.
 static int remove_tree(const char *path) {
@@ -189,7 +233,11 @@ static int prepare(void) {
         }
         if(result){remove_tree(stage);set_state("Download or validation failed; installed build unchanged");return -1;}
     }
-    if(update_versions_stage(directory,sd,&release))return -1;
+    char installed_metadata[UPDATE_PATH];
+    if(update_versions_stage(directory,current_metadata(installed_metadata)?installed_metadata:NULL,&release)) {
+        // A refused package does not stay on the card, and the status says why it was refused.
+        remove_tree(directory);set_state("Update refused by its versions; installed build unchanged");return -1;
+    }
     // A staged identical build may be re-uploaded as a newer GitHub asset. Retain the metadata
     // just confirmed, rather than leaving the installed asset ID bound to an older upload.
     char source[UPDATE_PATH];size_t length=0;
@@ -197,8 +245,11 @@ static int prepare(void) {
     unsigned char *json=update_read(source,512*1024,&length);
     if(!json)return -1;
     result=update_write(metadata,json,length);free(json);if(result)return -1;
-    char pending[16];snprintf(pending,sizeof(pending),"%s\n",release.build);
-    if(put("pending",pending) || set_state("Update prepared; restart to install"))return -1;
+    // The pending update belongs to the build enabled now: a package installed by hand before
+    // the next boot wins over it (pending_current, update-boot.sh).
+    char pending[16],from[16],current[13];installed(current);
+    snprintf(pending,sizeof(pending),"%s\n",release.build);snprintf(from,sizeof(from),"%s\n",current);
+    if(put("pending-from",from) || put("pending",pending) || set_state("Update prepared; restart to install"))return -1;
     puts("Update verified and prepared. Restart when convenient to install it.");return 0;
 }
 static int commit(const char *build) {
@@ -221,7 +272,7 @@ static int commit(const char *build) {
     char line[80];snprintf(line,sizeof(line),"%s\n",build);
     if(update_path(target,"%s/BrickOS/enabled",sd) || update_write(target,line,strlen(line)))return -1;
     snprintf(line,sizeof(line),"%llu\n",(unsigned long long)release.id);
-    if(put("installed-asset",line) || set_state("Update installed") || remove_file("pending"))return -1;
+    if(put("installed-asset",line) || set_state("Update installed") || remove_file("pending-from") || remove_file("pending"))return -1;
     // Keep the current online package and its predecessor; unrelated folders are never removed.
     char packages[UPDATE_PATH],previous[13];get("previous-build",previous,sizeof(previous));
     if(!file_path(packages,"packages")) {
@@ -237,10 +288,10 @@ static int commit(const char *build) {
 }
 static int status(void) {
     char message[160],current[13];get("state",message,sizeof(message));installed(current);
-    if(exists("pending"))strcpy(message,"Update prepared; restart to install");
+    if(pending_current(0))strcpy(message,"Update prepared; restart to install");
     printf("{{update_status=%s}}\n{{update_installed=%s}}\n{{update_auto=%d}}\n",message[0]?message:"Not checked yet",current[0]?current:"Unknown",!exists("disabled"));
     char path[UPDATE_PATH];struct update_versions versions;int known=0;
-    if(!update_path(path,"%s/BrickOS/versions.json",sd) && update_regular(path) && !update_versions_load(path,&versions))known=1;
+    if(current_metadata(path) && update_regular(path) && !update_versions_load(path,&versions))known=1;
     printf("{{update_release=%s}}\n",known?versions.release:"Legacy / unknown");
     for(int i=0;i<UPDATE_COMPONENTS;++i)printf("{{version_%s=%s}}\n",update_component_ids[i],known?versions.version[i]:"Unknown");
     return 0;
@@ -248,17 +299,20 @@ static int status(void) {
 static int monitor(void) {
     char path[UPDATE_PATH];if(update_path(path,"%s/brickos-update-monitor.lock",temporary))return -1;
     int singleton=lock_file(path);if(singleton<0)return 0;
-    setsid();time_t due=0;
+    setsid();time_t due=0;int failures=0;
     for(;;) {
         char enabled[UPDATE_PATH],runtime[UPDATE_PATH];
         if(update_path(enabled,"%s/BrickOS/enabled",sd) || !update_regular(enabled) ||
             update_path(runtime,"%s/BrickOS/settings/Updates/brickos-update",sd) || !update_regular(runtime))break;
         time_t now=time(NULL);
-        if(!exists("disabled") && !exists("pending") && (now>=due || due-now>6*60*60)) {
+        if(!exists("disabled") && !pending_current(1) && (now>=due || due-now>6*60*60)) {
             int lock=operation_lock();
             if(lock>=0) {
                 struct update_release release;int result=latest(&release,1);
-                due=now+(result<0?15*60:6*60*60);close(lock);
+                if(result<0)++failures;else failures=0;
+                // The frontend starts the monitor at boot, often before Wi-Fi has its address:
+                // a failed check is retried after a minute, five times, then every fifteen minutes.
+                due=now+(result<0?(failures<=5?60:15*60):6*60*60);close(lock);
             }
         }
         sleep(30);
@@ -293,7 +347,8 @@ int main(int argc,char **argv) {
     else if(argc==2 && !strcmp(argv[1],"prepare"))result=prepare();
     else if(argc==3 && !strcmp(argv[1],"verify"))result=verify(argv[2]);
     else if(argc==3 && !strcmp(argv[1],"commit"))result=commit(argv[2]);
-    else if(argc==2 && !strcmp(argv[1],"failed")){result=set_state("Installation failed; previous build retained") || remove_file("pending");}
-    else update_error("usage: brickos-update check|prepare|status|monitor|auto 0|1|verify BUILD|commit BUILD");
+    else if(argc==2 && !strcmp(argv[1],"failed")){result=set_state("Installation failed; previous build retained") || remove_file("pending-from") || remove_file("pending");}
+    else if(argc==2 && !strcmp(argv[1],"discard")){result=set_state("Prepared update dropped: another build is installed") || remove_file("pending-from") || remove_file("pending");}
+    else update_error("usage: brickos-update check|prepare|status|monitor|auto 0|1|verify BUILD|commit BUILD|failed|discard");
     close(lock);return result?1:0;
 }

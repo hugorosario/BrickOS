@@ -3,15 +3,22 @@
 # the release package's setup as BrickOS/gameswitcher/entry.sh. BrickOS's MainUI runs pick, the
 # collection over its own screen, which names a chosen checkpoint; it then hands the init
 # "resume ID STATE", which starts that checkpoint. A session needs the runtime that
-# runtime/current names, matching its manifest, and BrickOS's input daemon ready with game POWER.
-# Otherwise, and under netplay, a launch runs the launcher's stock bytes with the BrickOS menu
-# library the menu component installed, as a launcher with the menu line does.
+# runtime/current names, matching its manifest, and BrickOS's input daemon ready with game POWER,
+# and GameSwitcher on: OFF, the player's choice in Settings > GameSwitcher, turns it off.
+# Otherwise, under netplay, and for a launcher of a system listed in excluded-systems, a launch
+# runs the launcher's stock bytes with the BrickOS menu library the menu component installed, as a
+# launcher with the menu line does. "settings COMMAND..." runs gs-session's commands for Settings >
+# GameSwitcher, also while GameSwitcher is off.
 set -u
 sd=${BRICKOS_SD_ROOT:-/mnt/SDCARD}
 base=$sd/BrickOS/gameswitcher
 mode=${1:-}; shift || exit 2
 runtime() {
-    [ ! -e "$base/DISABLED" ] && [ -f "$base/runtime/current" ] || return 1
+    [ ! -e "$base/DISABLED" ] && [ ! -e "$base/OFF" ] && runtime_files
+}
+# The runtime that runtime/current names, matching its manifest.
+runtime_files() {
+    [ -f "$base/runtime/current" ] || return 1
     read -r version expected < "$base/runtime/current" || return 1
     case "$version" in ''|*[!0-9a-f]*) return 1 ;; esac
     [ "${#version}" = 12 ] && [ "${#expected}" = 64 ] || return 1
@@ -75,6 +82,15 @@ exec_session() {
     exec "$directory/gs-session" "$@"
 }
 if [ "$mode" = runtime ]; then runtime || exit 1; printf '%s\n' "$directory"; exit 0; fi
+if [ "$mode" = settings ]; then
+    runtime_files || { echo 'GameSwitcher is unavailable' >&2; exit 1; }
+    exec "$directory/gs-session" --sd "$sd" --settings "$@"
+fi
+# A system the player keeps out of GameSwitcher: its launcher's Emus folder is listed.
+if [ "$mode" = launch ] && [ $# = 4 ] && [ -f "$base/excluded-systems" ]; then
+    system=${1%/*}; system=${system##*/}
+    if grep -qxF -- "$system" "$base/excluded-systems"; then fallback "$@"; fi
+fi
 if [ "$mode" = boot ]; then
     # /tmp clears at boot. Claim before validation so corrupt/missing targets and
     # failed loads never repeat when the firmware calls MainUI again.

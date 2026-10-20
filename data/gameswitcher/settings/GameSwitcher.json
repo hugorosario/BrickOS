@@ -1,0 +1,18 @@
+{
+  "title": "GameSwitcher",
+  "icon": "icon.png",
+  "menu": [
+    { "label": "GameSwitcher", "type": "toggle", "selected": 1, "load": "sh ./menu.sh status", "execute": "sh ./menu.sh set", "description": "Off: GUIDE opens the in-game menu and GameSwitcher is hidden" },
+    { "label": "GUIDE opens", "type": "select", "items": ["GameSwitcher", "In-game menu"], "selected": 0, "load": "sh ./menu.sh get guide_menu", "execute": "sh ./menu.sh put guide_menu", "output": "none", "description": "In-game menu: GUIDE+SELECT opens GameSwitcher" },
+    { "label": "Double tap", "type": "toggle", "selected": 1, "load": "sh ./menu.sh get double_tap", "execute": "sh ./menu.sh put double_tap", "description": "Two GUIDE taps switch to the previous game" },
+    { "label": "Resume at power on", "type": "toggle", "selected": 1, "load": "sh ./menu.sh get auto_resume", "execute": "sh ./menu.sh put auto_resume", "description": "After holding POWER in a game, the next power on resumes it" },
+    { "label": "Battery warning (%)", "type": "range", "min": 5, "max": 50, "step": 5, "value": 15, "load": "sh ./menu.sh get warning_percent", "execute": "sh ./menu.sh put warning_percent", "description": "A warning shows in games below this battery level" },
+    { "label": "Critical battery (%)", "type": "range", "min": 1, "max": 20, "step": 1, "value": 4, "load": "sh ./menu.sh get critical_percent", "execute": "sh ./menu.sh put critical_percent", "description": "At this level the game is saved and closed" },
+    { "label": "Games in history", "type": "select", "items": ["No limit", "10", "20", "50"], "selected": 0, "load": "sh ./menu.sh get history_limit", "execute": "sh ./menu.sh put history_limit", "description": "Older games leave GameSwitcher and their checkpoints are deleted" },
+    { "label": "Systems", "type": "menu", "menu": "systems", "description": "Choose which systems' games use GameSwitcher" },
+    { "label": "History", "type": "info", "value": "{{gs_history}}", "load": "sh ./menu.sh info" },
+    { "label": "Play time", "type": "info", "value": "{{gs_play}}" },
+    { "label": "Clear history", "type": "cmd", "execute": "sh ./menu.sh clear", "output": "line", "description": "Hides every card and deletes the checkpoints; play time stays" },
+    { "label": "Reset play time", "type": "cmd", "execute": "sh ./menu.sh reset-time", "output": "line", "description": "Sets the play time of every game to zero" }
+  ]
+}

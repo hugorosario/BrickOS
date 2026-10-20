@@ -82,6 +82,10 @@ export const PACKAGED_FILES = [
   ['gameswitcher/app/config.json', 'data/Apps/GameSwitcher/config.json', 'data'],
   ['gameswitcher/app/launch.sh', 'data/Apps/GameSwitcher/launch.sh', 'script'],
   ['gameswitcher/app/icon.png', 'data/Apps/GameSwitcher/icon.png', 'data'],
+  ['gameswitcher/settings/GameSwitcher.json', 'data/gameswitcher/settings/GameSwitcher.json', 'data'],
+  ['gameswitcher/settings/menu.sh', 'data/gameswitcher/settings/menu.sh', 'script'],
+  ['gameswitcher/settings/icon.png', 'data/gameswitcher/settings/icon.png', 'data'],
+  ['gameswitcher/settings/lang/pt.json', 'data/gameswitcher/settings/lang/pt.json', 'data'],
 ];
 // Folders whose images are packaged: package folder, source folder, image format.
 export const PACKAGED_FOLDERS = [
@@ -264,7 +268,9 @@ export function packageEntries(files) {
   const build = buildIdentity(manifest);
   const base = `${PACKAGE_DIR}/${build}`;
   const entries = files.map(file => ({
-    name: file.path === BOOT_SCRIPT_FROM_PACKAGE ? BOOT_SCRIPT : `${base}/${file.path}`, data: file.bytes, mode: file.mode }));
+    // A ../../../PATH file belongs at the card's root, as the boot script does; the refusals below
+    // still apply to its name.
+    name: file.path.startsWith('../../../') ? file.path.slice(9) : `${base}/${file.path}`, data: file.bytes, mode: file.mode }));
   entries.push({ name: `${base}/manifest.txt`, data: Buffer.from(manifest), mode: 0o644 });
   entries.push({ name: MARKER, data: Buffer.from(`${build}\n`), mode: 0o644 });
   const folders = new Set();
@@ -385,7 +391,7 @@ export function verifyEntries(entries) {
   for (const line of manifest.trimEnd().split('\n')) {
     const match = line.match(/^([0-9a-f]{64}) (\d+) (.+)$/);
     if (!match) throw new Error(`bad manifest line: ${line}`);
-    const name = match[3] === BOOT_SCRIPT_FROM_PACKAGE ? BOOT_SCRIPT : `${base}/${match[3]}`;
+    const name = match[3].startsWith('../../../') ? match[3].slice(9) : `${base}/${match[3]}`;
     const data = files.get(name);
     if (!data) throw new Error(`${name} is in the manifest but not in the package`);
     if (data.length !== Number(match[2]) || sha256(data) !== match[1]) throw new Error(`${name} does not match the manifest`);

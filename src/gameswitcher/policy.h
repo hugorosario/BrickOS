@@ -1,16 +1,29 @@
 #ifndef BRICKOS_GS_POLICY_H
 #define BRICKOS_GS_POLICY_H
 #include "store.h"
-struct gs_policy { int warning,critical,auto_resume; };
+// settings.json in the store's folder, which Settings > GameSwitcher writes: warning_percent and
+// critical_percent (the battery levels), auto_resume, double_tap (two GUIDE taps switch to the
+// previous game), guide_menu (a GUIDE tap opens the BrickOS menu and GUIDE+SELECT GameSwitcher)
+// and history_limit (the most cards shown, 0 for no limit).
+struct gs_policy { int warning,critical,auto_resume,double_tap,guide_menu,history_limit; };
 struct gs_battery { int warned,critical_latched; };
 enum gs_battery_action { GS_BATTERY_NONE,GS_BATTERY_WARN,GS_BATTERY_EXIT };
 void gs_policy_defaults(struct gs_policy *policy);
 int gs_policy_load(struct gs_store *store,struct gs_policy *policy);
+// Sets one setting after checking it with the others. Every other member of the file stays,
+// unknown keys included; a known key that was invalid is written with the value in use. The file
+// is replaced through a temporary file and a rename. Returns 0, or -1 with errno: EINVAL for an
+// unknown key or a value the rules refuse, another errno when the file cannot be read or written.
+int gs_policy_set(struct gs_store *store,const char *key,int value);
+// Applies history_limit after a new checkpoint (gs_history_trim). A failure is logged and leaves
+// the history as it was; the checkpoint stays published.
+void gs_policy_trim_history(struct gs_store *store);
 enum gs_battery_action gs_battery_update(struct gs_battery *state,const struct gs_policy *policy,int capacity,int charging);
 // The boot's target: the most recent committed, visible entry, only when the resume record
 // (a game-aware shutdown's, read with gs_store_resume_take) names that entry and checkpoint.
 // 0 without a record or when another checkpoint is newer; 1 with the entry; -1 when the named
-// checkpoint can no longer be resumed. An invalid latest target never selects an older game.
+// checkpoint can no longer be resumed. An invalid latest target never selects an older game, and
+// a game of an excluded system never resumes (0).
 int gs_boot_target(struct gs_store *store,const struct gs_resume *resume,struct gs_entry *entry);
 int gs_toast(const char *message);
 // GameSwitcher's OSD notices. The toast follows the system language; logs use the English text.

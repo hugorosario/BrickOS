@@ -10,15 +10,19 @@ setup. Both Stock++ and BrickOS then show **Settings → Updates**:
 
 - **Installed build** and **Status** show the selected package and the last result.
 - **Automatic checks** enables or disables background checking. It is enabled by
-  default: check when the frontend starts, then every six hours; retry a failed
-  check after fifteen minutes. A single monitor survives frontend/game return.
+  default: check when the frontend starts, then every six hours. A failed check is
+  retried after one minute, up to five times in a row, then every fifteen minutes. At
+  boot the frontend starts the monitor before Wi-Fi has its address, so the first check
+  often fails and the retry a minute later succeeds. A single monitor survives frontend/game return.
 - **Check now** checks immediately, including when automatic checks are disabled.
 - **Install update** checks the latest stable release and asks for confirmation.
   Cancel or leaving the confirmation unanswered downloads nothing. Confirming
   downloads and prepares the package; installation happens at the next normal boot.
   The updater never reboots or stops a game automatically.
 
-A newly discovered release raises an OSD toast pointing to Settings → Updates.
+A newly discovered release raises an OSD toast pointing to Settings → Updates, in the
+wide bottom box of MainUI's notices: the record names every field the OSD draws from
+(duration, size and box), since the OSD starts a toast at zero and would not show it.
 The confirmation shows the release tag. Drafts, prereleases, ambiguous package
 assets and releases without a SHA-256 digest are not installable. No published
 stable release is a normal status, not an installation error.
@@ -29,8 +33,11 @@ See [component versions](component-versions.md) for bump commands and package ch
 
 ## Runtime requirements
 
-The device needs Wi-Fi, a correct clock, `curl` on its PATH with HTTPS support and
-a working CA trust store, and sufficient free SD-card space. TLS verification is
+The device needs Wi-Fi, a correct clock, `curl` on its PATH with HTTPS support, the
+firmware's CA bundle at `/etc/ssl/certs/ca-certificates.crt`, and sufficient free SD-card
+space. The firmware's curl has no default CA bundle, so without `--cacert` every
+verification fails (`unable to get local issuer certificate`, seen on the Brick on
+2026-10-19); the updater names that bundle, or `/etc/ssl/cert.pem`, to curl. TLS verification is
 always enabled. The updater never falls back to HTTP or an insecure TLS option.
 An offline device, missing curl, invalid certificate or rate limit leaves the
 installed build selected and schedules another automatic check. No token is saved.
@@ -43,11 +50,18 @@ exactly one uploaded `brickos-<12 hex build>.zip` asset. The HTTPS download URL 
 belong to this repository's release assets. It checks the GitHub asset SHA-256,
 size, every ZIP entry's CRC, the manifest-derived build, and each manifest size and
 SHA-256. It rejects traversal, links, duplicate/case-colliding paths, unlisted files,
-unsupported ZIP formats and entries outside the package's SD-card paths. Compressed
+unsupported ZIP formats and files the manifest does not list. A later release may carry
+files at the card's root (listed as `../../../<path>`, as the boot script is) and more
+components than this updater knows: both are accepted, the root files stay in the private
+stage, and the package's own setup decides what to install. Compressed
 downloads are capped at 128 MiB and expanded contents at 256 MiB. Downloads have
 network timeouts and disk limits. Operations and monitors have separate locks.
 
-Only a fully verified package gets a durable `BrickOS/updates/pending` marker.
+Only a fully verified package gets a durable `BrickOS/updates/pending` marker, with
+`pending-from` naming the build enabled when it was prepared. A package installed by hand
+before the next boot wins: at boot, and at the next check, an update prepared from another
+build is dropped and the status says so. A package refused by its versions does not stay
+in `BrickOS/updates/packages/`, and the status says it was refused.
 The confirmed download does not change `BrickOS/enabled`, the active bootstrap or
 any running component. Cancelling the command while downloading leaves no pending
 update; an incomplete private stage is reclaimed on a later confirmed attempt.
@@ -59,7 +73,11 @@ the retained ZIP and extracted files again, then runs that package's existing
 rollback behavior. A refused/failed setup keeps the old enabled marker, clears the
 pending request and records a failure. A successful setup commits the bootstrap
 and enabled marker atomically one file at a time, and removes pending last; an
-interrupted commit is retried at the next boot. The current online package and its
+interrupted commit is retried at the next boot. When the commit itself fails after a
+successful setup, the boot keeps the update's build (the boot script does not set up the
+enabled one again) and the next boot retries the commit; after three failed boots the
+failure is recorded, pending goes, and the enabled build is set up again. Start scripts
+that the update's setup created run in that boot. The current online package and its
 predecessor are retained. The updater does not write under `/usr/trimui`.
 
 State and preferences live in `BrickOS/updates/`; the installed programs/menu live
@@ -79,8 +97,12 @@ Automatic checking starts seeing it after it is published. Existing installation
 without the updater need one manual package update to bootstrap the feature.
 
 The updater follows GitHub's selected latest stable release and compares its semantic
-version with installed metadata. It rejects release/component downgrades and changed
-component payloads without a version bump. Legacy installations without metadata
+version with installed metadata. It rejects release/component downgrades. The rule that a
+changed component needs a newer version is the packaging's (`--previous`): a card running
+a development package may hold other bytes under the same versions, and still takes the
+next release. The installed metadata counts only when the enabled build's own package
+carries it, so the copy an older package installed by hand leaves behind is ignored.
+A new metadata schema needs one manual update. Legacy installations without metadata
 use asset/build checks until their first versioned update. Release ownership and TLS are the trust
 boundary; this does not add a separate offline package-signing system.
 

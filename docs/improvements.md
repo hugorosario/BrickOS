@@ -24,7 +24,7 @@ change was confirmed for the capture.
 | Loading screens | Browse and preview RetroArch loading-screen presets, with verified replacement of a complete preset | Settings → Themes → Loading Screen |
 | Updates | Automatic checks of the public GitHub repository; confirmation before downloading, validation and installation at the next normal boot | Settings → Updates |
 | Component versions | A release version and separate versions for ten components, alongside exact build IDs and file hashes | Settings → Updates → Component versions |
-| GameSwitcher | Checkpoints, recent-game cards, quick switching, active play time and save-aware power handling for compatible RetroArch games | Apps → GameSwitcher; GUIDE in a managed game |
+| GameSwitcher | Checkpoints, recent-game cards, quick switching, active play time and save-aware power handling for compatible RetroArch games. It can be turned off, GUIDE can open the in-game menu instead, systems can be excluded, and the history can be limited, cleared or measured | Apps → GameSwitcher; GUIDE in a managed game; Settings → GameSwitcher |
 | Experimental frontend | Alternative desktop, appearance controls and configurable list/grid/carousel views | Settings → Themes → Frontend → BrickOS |
 
 ### Script-backed Settings
@@ -100,6 +100,7 @@ device does not answer; that inherited limitation is not removed here.
 | --- | --- | --- |
 | Wi-Fi credentials | Editing the password for the connected network could report success using the existing connection | Disconnects and reconnects with the new credentials; rejected credentials report failure |
 | Wi-Fi timing | A valid connection could complete after the UI had already reported failure | Waits for up to 30 status readings and ends the wait when connected |
+| Wi-Fi after a reboot | With Wi-Fi on, the device rejoined the network at boot but nothing started its DHCP client, so it had no address and network features such as update checks failed until Wi-Fi was turned off and on | Starts the DHCP client when the Wi-Fi client is running without one |
 | Search and counts | Systems with an empty index/list cache could be omitted from search or have no game count | Searches all systems and counts every displayed system |
 | UTF-8 editing | Delete removed one byte, potentially corrupting a multi-byte character | Removes a complete UTF-8 code point |
 | Visibility edits | Cancel could still save Games/Apps visibility changes | Discards the edits and reloads the persisted catalog |
@@ -121,7 +122,10 @@ before/after timing, radio or physical-input tests.
 The replacement components also include development fixes: the OSD supervisor
 detects a loop counter that stops advancing and recovers/falls back; GameSwitcher
 handles replacement of the input controller, keeps volume controls available in
-its card view, and reserves boot resume for a committed long-POWER shutdown.
+its card view, and reserves boot resume for a committed long-POWER shutdown. It now
+takes every compatible RetroArch launcher, including a system's other emulators, so
+systems such as Mega Drive and Super Famicom use it too. The updater verifies GitHub with
+the firmware's CA bundle and retries a failed automatic check after a minute.
 The in-game menu keeps focus on Save after saving. These improve BrickOS's own
 components; they are not presented as defects in equivalent stock features.
 

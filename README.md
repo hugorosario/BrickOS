@@ -269,6 +269,18 @@ a card, Y previews its saved frame and SELECT shows play time. Standby and time
 spent in the switcher do not count as active play time. Standalone emulators,
 apps and unsupported launchers keep their existing launch behavior.
 
+The controls above are the defaults. **Settings → GameSwitcher** changes them:
+- **GameSwitcher on or off.** Off, GUIDE opens the in-game menu and the app and desktop
+  card are hidden; the checkpoints stay.
+- **What a GUIDE tap opens.** The in-game menu can take the tap, with GUIDE + SELECT
+  then opening GameSwitcher.
+- **The double tap.** Turned off, a tap acts at once.
+- **Resume and battery.** The resume at power on and the battery warning and critical
+  levels.
+- **Systems.** Each system can be kept out of GameSwitcher.
+- **History.** The games kept (no limit, 10, 20 or 50), the space their checkpoints use,
+  and Clear history or Reset play time after a confirmation.
+
 ![GameSwitcher checkpoint card captured on the device](docs/screenshots/gameswitcher-cards.png)
 
 *GameSwitcher card — 13 October 2026. The game title and saved frame are obscured.*

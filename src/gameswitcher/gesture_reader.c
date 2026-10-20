@@ -82,6 +82,9 @@ static void *reader(void *unused) {
     }
     return NULL;
 }
+void gs_gesture_configure(int double_tap,int guide_menu) {
+    pthread_mutex_lock(&lock); gesture.single=!double_tap; gesture.swapped=!!guide_menu; pthread_mutex_unlock(&lock);
+}
 int gs_gesture_start(void) {
     if ((input=attach())<0) return -1;
     pthread_t thread;

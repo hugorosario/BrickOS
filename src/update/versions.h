@@ -9,5 +9,5 @@ struct update_versions {
     char fingerprint[UPDATE_COMPONENTS][65];
 };
 int update_versions_load(const char *path, struct update_versions *versions);
-int update_versions_stage(const char *directory, const char *sd, const struct update_release *release);
+int update_versions_stage(const char *directory, const char *installed, const struct update_release *release);
 #endif

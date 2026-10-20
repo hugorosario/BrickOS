@@ -76,4 +76,10 @@ int gs_store_resume_write(struct gs_store *store, const struct gs_resume *resume
 int gs_store_resume_take(struct gs_store *store, struct gs_resume *resume, int *malformed);
 // Removes the record, as when the shutdown that wrote it failed: 0 once it is gone.
 int gs_store_resume_remove(struct gs_store *store);
+// Loads the index under the exclusive lock and hands it, in file order, to edit, which returns 1
+// when it changed it, 0 when not, and -1 with errno set to stop. A change is saved. With collect,
+// it is saved twice: the prior snapshot then no longer refers to the state and thumbnail files
+// the edit dropped, and those files are deleted.
+int gs_store_rewrite(struct gs_store *store, int (*edit)(struct gs_index *index, void *context),
+                     void *context, int collect);
 #endif

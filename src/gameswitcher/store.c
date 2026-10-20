@@ -420,6 +420,22 @@ int gs_store_hide(struct gs_store *s, const char *id) {
     if (!result) result = found ? save_unlocked(s, &index, 0, 0) : fail(ENOENT);
     gs_index_close(&index); flock(s->lock, LOCK_UN); return result;
 }
+int gs_store_rewrite(struct gs_store *s, int (*edit)(struct gs_index *, void *), void *context, int collect) {
+    if (!edit) return fail(EINVAL);
+    if (flock(s->lock, LOCK_EX)) return -1;
+    struct gs_index index; int result = load_unlocked(s, &index);
+    if (!result) {
+        int changed = edit(&index, context);
+        if (changed < 0) result = -1;
+        else if (changed) {
+            result = save_unlocked(s, &index, 0, collect);
+            // The second save makes the first the prior snapshot, so no snapshot keeps the
+            // dropped assets and the collection deletes them.
+            if (!result && collect) result = save_unlocked(s, &index, 0, 1);
+        }
+    }
+    gs_index_close(&index); flock(s->lock, LOCK_UN); return result;
+}
 int gs_store_time(struct gs_store *s, const char *id, const char *session, uint64_t cumulative) {
     if (!id_valid(id) || !id_valid(session)) return fail(EINVAL);
     if (flock(s->lock, LOCK_EX)) return -1;

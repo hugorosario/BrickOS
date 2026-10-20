@@ -1,4 +1,5 @@
 #include "model.h"
+#include "history.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -12,17 +13,20 @@ const struct gs_entry *gs_model_selected(const struct gs_model *m) {
 int gs_model_reload(struct gs_model *m, struct gs_store *s) {
     char id[GS_ID] = {0}; const struct gs_entry *previous = gs_model_selected(m);
     if (previous) memcpy(id, previous->id, GS_ID);
-    struct gs_index next;
+    struct gs_index next; struct gs_excluded excluded;
+    // An unreadable list hides nothing.
+    if (gs_excluded_load(s, &excluded)) excluded.count = 0;
     if (gs_store_load(s, &next)) {
         snprintf(m->message, sizeof(m->message), "Cannot read checkpoint history"); return -1;
     }
-    // Played-only records are retained for time/history but have no card until saved.
+    // Played-only records are retained for time/history but have no card until saved; an excluded
+    // system's cards keep theirs but do not show.
     size_t visible = 0;
     m->total_ms = 0;
     for (size_t i = 0; i < next.count; ++i) {
         uint64_t t = next.entries[i].play_ms;
         m->total_ms = UINT64_MAX - m->total_ms < t ? UINT64_MAX : m->total_ms + t;
-        if (!next.entries[i].hidden && *next.entries[i].state) next.entries[visible++] = next.entries[i];
+        if (gs_history_shown(s, &excluded, &next.entries[i])) next.entries[visible++] = next.entries[i];
     }
     next.count = visible;
     gs_index_close(&m->index); m->index = next;

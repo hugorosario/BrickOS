@@ -121,7 +121,7 @@ packages() { local dir; for dir in "$brickos"/package/*/; do [ -f "$dir/setup.sh
 # launcher_failed= with its path and returns 1.
 restore_menu_lines() {
     local file
-    for file in "$sd"/Emus/*/launch.sh; do
+    for file in "$sd"/Emus/*/launch*.sh; do
         grep -q "$menu_marker\$" "$file" 2>/dev/null || continue
         # The copy keeps the launcher's mode; only its contents are replaced.
         if ! { cp -p "$file" "$file.brickos-tmp" &&

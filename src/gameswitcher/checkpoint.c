@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include "checkpoint.h"
+#include "policy.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -102,5 +103,6 @@ int gs_checkpoint_save(struct gs_store *s,const struct gs_identity *identity,
     uint64_t started=now_ms();
     int result=gs_store_publish(s,identity,&stage,&receipt);
     fprintf(stderr,"GameSwitcher checkpoint publish_ms=%llu result=%d\n",(unsigned long long)(now_ms()-started),result);
+    if (!result) gs_policy_trim_history(s);
     gs_checkpoint_discard(&stage); return result;
 }

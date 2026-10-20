@@ -137,6 +137,30 @@ int mainui_frontend_game_count(const struct mainui_frontend *fe, int visible_sys
     return __atomic_load_n(&fe->game_counts[fe->visible[visible_system]], __ATOMIC_ACQUIRE);
 }
 
+// GameSwitcher's app, where its installer puts it and its rollback removes it. Settings >
+// GameSwitcher turns GameSwitcher off with GAMESWITCHER_OFF: Apps then leaves the app out and the
+// BrickOS desktop has no card. The switch is read with the catalog and each second after.
+#define GAMESWITCHER_APP "/mnt/SDCARD/Apps/GameSwitcher"
+#define GAMESWITCHER_OFF "/mnt/SDCARD/BrickOS/gameswitcher/OFF"
+
+static int is_gameswitcher(const struct mainui_app *app) {
+    return !app->stock && strcmp(app->directory, GAMESWITCHER_APP) == 0;
+}
+
+static int gameswitcher_off(const struct mainui_frontend *fe) {
+    char path[PATH_BYTES];
+    struct stat st;
+    path_under(fe, path, GAMESWITCHER_OFF);
+    return path[0] && stat(path, &st) == 0;
+}
+
+static void show_apps(struct mainui_frontend *fe) {
+    fe->shown_app_count = 0;
+    for (int i = 0; i < fe->app_count && fe->shown_app_count < 256; ++i)
+        if (fe->apps[i].show && !(fe->gameswitcher_off && is_gameswitcher(&fe->apps[i])))
+            fe->shown_apps[fe->shown_app_count++] = i;
+}
+
 static int load_catalog(struct mainui_frontend *fe) {
     stop_counting(fe);
     drop_games(fe);
@@ -159,9 +183,8 @@ static int load_catalog(struct mainui_frontend *fe) {
         if (fe->systems[i].show) fe->visible[fe->visible_count++] = i;
     fe->app_count = mainui_catalog_apps(&fe->fs, &fe->apps);
     if (fe->app_count < 0) fe->app_count = 0;
-    fe->shown_app_count = 0;
-    for (int i = 0; i < fe->app_count && fe->shown_app_count < 256; ++i)
-        if (fe->apps[i].show) fe->shown_apps[fe->shown_app_count++] = i;
+    fe->gameswitcher_off = gameswitcher_off(fe);
+    show_apps(fe);
     fe->port_count = mainui_catalog_ports(&fe->fs, &fe->ports);
     if (fe->port_count < 0) fe->port_count = 0;
     fe->shown_port_count = 0;
@@ -549,13 +572,12 @@ static int catalog_content(void *context, enum mainui_tab tab) {
            (tab == MAINUI_TAB_BESTS && fe->shown_best_count > 0);
 }
 
-// GameSwitcher's app, where its installer puts it and its rollback removes it; an app hidden from
-// Apps by show.json still counts, as the BrickOS desktop shows its card either way.
-#define GAMESWITCHER_APP "/mnt/SDCARD/Apps/GameSwitcher"
-
+// GameSwitcher's app unless it is turned off; an app hidden from Apps by show.json still counts,
+// as the BrickOS desktop shows its card either way.
 static const struct mainui_app *gameswitcher_app(const struct mainui_frontend *fe) {
+    if (fe->gameswitcher_off) return NULL;
     for (int i = 0; i < fe->app_count; ++i)
-        if (!fe->apps[i].stock && strcmp(fe->apps[i].directory, GAMESWITCHER_APP) == 0) return &fe->apps[i];
+        if (is_gameswitcher(&fe->apps[i])) return &fe->apps[i];
     return NULL;
 }
 
@@ -3338,6 +3360,12 @@ static void startup_services(struct mainui_frontend *fe, int bluetooth_feature) 
             run(fe, "wpa_supplicant -B -D nl80211 -iwlan0 -c /etc/wifi/wpa_supplicant.conf -O /etc/wifi/sockets");
             run(fe, "udhcpc -i wlan0 &");
             run(fe, WIFI_MAC);
+        } else if (process_pid(fe, "udhcpc") < 0) {
+            // A stock defect: at boot the firmware's init starts wpa_supplicant, which joins the
+            // network, and nothing starts its DHCP client, so the Brick has no address until Wi-Fi
+            // is switched off and on. The client starts here, as that switch starts it.
+            note(fe, "startup wifi address");
+            run(fe, "udhcpc -i wlan0 &");
         }
     } else if (keymon_or(fe, MAINUI_SHM_HOSTAP, v[MAINUI_SET_HOSTAP]) && process_pid(fe, "hostapd") < 0) {
         note(fe, "startup hotspot restart");
@@ -4421,6 +4449,20 @@ static int led_tick(struct mainui_frontend *fe, uint64_t now_ms, int open) {
     return changed;
 }
 
+// Settings > GameSwitcher's switch, read each second: turning GameSwitcher off or on hides or
+// shows its app and desktop card at once. Returns 1 when it changed.
+static int gameswitcher_tick(struct mainui_frontend *fe, uint64_t now_ms) {
+    if (now_ms - fe->gameswitcher_read_ms < 1000) return 0;
+    fe->gameswitcher_read_ms = now_ms;
+    int off = gameswitcher_off(fe);
+    if (off == fe->gameswitcher_off) return 0;
+    fe->gameswitcher_off = off;
+    show_apps(fe);
+    note(fe, "gameswitcher %s", off ? "off" : "on");
+    mainui_model_catalog_changed(&fe->model);
+    return 1;
+}
+
 int mainui_frontend_tick(struct mainui_frontend *fe, uint64_t now_ms) {
     if (fe->rumble_running && __atomic_load_n(&fe->rumble_done, __ATOMIC_ACQUIRE)) rumble_finish(fe, 1);
     int powered = power_tick(fe, now_ms);
@@ -4452,6 +4494,7 @@ int mainui_frontend_tick(struct mainui_frontend *fe, uint64_t now_ms) {
     changed |= bt_tick(fe, now_ms, settings && screen->screen == MAINUI_SCREEN_BLUETOOTH, top);
     changed |= mapping_tick(fe, now_ms, settings && screen->screen == MAINUI_SCREEN_BUTTON_MAPPING);
     changed |= led_tick(fe, now_ms, settings && screen->screen == MAINUI_SCREEN_DISPLAY);
+    changed |= gameswitcher_tick(fe, now_ms);
     changed |= appearance_tick(fe, now_ms);
     changed |= __atomic_exchange_n(&fe->counts_changed, 0, __ATOMIC_ACQ_REL);
     changed |= boot_rotation_tick(fe);

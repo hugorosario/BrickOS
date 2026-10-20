@@ -22,7 +22,8 @@ int update_parse_release(const char *path, struct update_release *release) {
     int result=-1,found=0;
     if(!draft || draft->type!=MAINUI_JSON_TREE_FALSE || !pre || pre->type!=MAINUI_JSON_TREE_FALSE ||
         !assets || assets->type!=MAINUI_JSON_TREE_ARRAY || text(root,"tag_name",release->tag,sizeof(release->tag)) ||
-        !release->tag[0] || strspn(release->tag,"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._+-")!=strlen(release->tag))goto done;
+        !release->tag[0] || strspn(release->tag,"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._+-")!=strlen(release->tag) ||
+        !strcmp(release->tag,".") || !strcmp(release->tag,".."))goto done;
     const char *version=release->tag+(release->tag[0]=='v');struct brickos_semver parsed;
     if(brickos_semver_parse(version,&parsed) || parsed.pre[0])goto done;
     strcpy(release->version,version);
@@ -37,10 +38,17 @@ int update_parse_release(const char *path, struct update_release *release) {
             release->size>UPDATE_MAX_ZIP || text(asset,"digest",digest,sizeof(digest)) || strncmp(digest,"sha256:",7) ||
             !update_hex(digest+7,64) || text(asset,"browser_download_url",release->url,sizeof(release->url)))goto done;
         strcpy(release->digest,digest+7);
-        size_t prefix=strlen(UPDATE_DOWNLOAD),url_size=strlen(release->url),name_size=strlen(name);
-        if(strncmp(release->url,UPDATE_DOWNLOAD,prefix) || url_size<=prefix+name_size+1 ||
-            strcmp(release->url+url_size-name_size,name) || release->url[url_size-name_size-1]!='/' ||
-            strpbrk(release->url,"\r\n\t ?#\\"))goto done;
+        // Exactly this repository's download path for this tag and name, so no dot segment or
+        // other path can follow the prefix. GitHub writes a '+' of the tag as %2B.
+        char expected[sizeof(release->url)],encoded[3*sizeof(release->tag)];size_t at=0;
+        for(const char *c=release->tag;*c;++c){if(*c=='+'){memcpy(encoded+at,"%2B",3);at+=3;}else encoded[at++]=*c;}
+        encoded[at]=0;
+        int plain=snprintf(expected,sizeof(expected),"%s%s/%s",UPDATE_DOWNLOAD,release->tag,name);
+        if(plain<0 || (size_t)plain>=sizeof(expected))goto done;
+        if(strcmp(release->url,expected)) {
+            int escaped=snprintf(expected,sizeof(expected),"%s%s/%s",UPDATE_DOWNLOAD,encoded,name);
+            if(escaped<0 || (size_t)escaped>=sizeof(expected) || strcmp(release->url,expected))goto done;
+        }
     }
     if(found==1)result=0;
 done:

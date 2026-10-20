@@ -211,12 +211,13 @@ static int gameswitcher_installed(const struct mainui_model *m) {
            m->catalog.gameswitcher(m->catalog.context);
 }
 
+// GameSwitcher sits where Recent is, after it, or in its place when Recent is hidden.
+static const int material_order[MAINUI_HOME_COUNT] = {
+    MAINUI_TAB_GAMES, MAINUI_TAB_BESTS, MAINUI_TAB_FAVORITES, MAINUI_TAB_RECENT, MAINUI_HOME_GAMESWITCHER,
+    MAINUI_TAB_APPS, MAINUI_TAB_PORTS, MAINUI_TAB_NETPLAY, MAINUI_TAB_SETTINGS,
+};
+
 int mainui_model_home_items(const struct mainui_model *m, int items[MAINUI_HOME_COUNT]) {
-    // GameSwitcher sits where Recent is, after it, or in its place when Recent is hidden.
-    static const int material_order[MAINUI_HOME_COUNT] = {
-        MAINUI_TAB_GAMES, MAINUI_TAB_BESTS, MAINUI_TAB_FAVORITES, MAINUI_TAB_RECENT, MAINUI_HOME_GAMESWITCHER,
-        MAINUI_TAB_APPS, MAINUI_TAB_PORTS, MAINUI_TAB_NETPLAY, MAINUI_TAB_SETTINGS,
-    };
     int n = 0;
     if (m->presentation != MAINUI_PRESENTATION_MATERIAL_YOU) {
         enum mainui_tab tabs[MAINUI_TAB_COUNT];
@@ -2636,6 +2637,22 @@ int mainui_model_event(struct mainui_model *m, enum mainui_event event) {
     }
     }
     return memcmp(&before, m, sizeof(before)) != 0;
+}
+
+void mainui_model_catalog_changed(struct mainui_model *m) {
+    // The shortcut before the card, or the first one when none is.
+    int items[MAINUI_HOME_COUNT], n = mainui_model_home_items(m, items), pos = 0;
+    while (pos < n && items[pos] != m->home_focus) ++pos;
+    if (pos >= n && n > 0 && m->home_focus == MAINUI_HOME_GAMESWITCHER) {
+        m->home_focus = items[0];
+        for (int i = 0; i < MAINUI_HOME_COUNT && material_order[i] != MAINUI_HOME_GAMESWITCHER; ++i)
+            for (int j = 0; j < n; ++j) if (items[j] == material_order[i]) m->home_focus = items[j];
+    }
+    home_fit(m);
+    struct mainui_tab_state *t = &m->tabs[MAINUI_TAB_APPS];
+    int apps = tab_count(m, MAINUI_TAB_APPS);
+    if (t->focus >= apps) t->focus = apps ? apps - 1 : 0;
+    if (t->first > t->focus) t->first = t->focus;
 }
 
 void mainui_model_notice(struct mainui_model *m, enum mainui_notice notice) {

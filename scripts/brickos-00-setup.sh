@@ -4,17 +4,19 @@
 # boot, in name order and waiting for each, before its daemon loop; this name sorts before the
 # BrickOS component start scripts.
 #
-# With /mnt/SDCARD/BrickOS/enabled present, it installs or updates BrickOS from the package the
-# marker names (or the only package on the card), before the loop. On a fresh install it also
-# runs the new component start scripts, which were not in this boot's list, so BrickOS runs in
-# this boot; on an update the list runs them after this script. Without the marker it rolls
-# BrickOS back, then removes the package and itself. When no package is left, it rolls back
-# with the copy of the setup in BrickOS/setup/, or, without that copy, removes the BrickOS
-# start scripts, the menu lines and the Uninstall BrickOS app it can identify by their marker,
-# puts back GameSwitcher's launchers whose backup is still there, and removes GameSwitcher's app.
-# The setup's rollback removes that app itself. A failed or refused setup
-# leaves the stock boot to go on: the official daemons start as usual. Results go to
-# /mnt/SDCARD/BrickOS/setup.log.
+# With /mnt/SDCARD/BrickOS/enabled present, it first lets the installed updater install a
+# verified online update (BrickOS/settings/Updates/boot.sh), then installs or updates BrickOS
+# from the package the marker names: its online package in BrickOS/updates/packages/ when there
+# is one, else BrickOS/package/<build>, else the only package on the card. Component start
+# scripts that a setup created in this boot were not in this boot's list, so it runs them, and
+# BrickOS runs in this boot; existing ones run from the list after this script. When the update
+# was installed but its commit failed, the enabled build's setup is not run again in that boot.
+# Without the marker it rolls BrickOS back with the copy of the setup in BrickOS/setup/ (or the
+# package's setup without that copy), then removes the package and itself. When no package and no
+# copy are left, it removes the BrickOS start scripts, the menu lines and the Uninstall BrickOS app
+# it can identify by their marker, puts back GameSwitcher's launchers whose backup is still there,
+# and removes GameSwitcher's app. A failed or refused setup leaves the stock boot to go on: the
+# official daemons start as usual. Results go to /mnt/SDCARD/BrickOS/setup.log.
 root=${BRICKOS_ROOT:-}
 sd=$root/mnt/SDCARD
 brickos=$sd/BrickOS
@@ -28,11 +30,35 @@ note() {
 }
 result() { sed -n 's/^result=//p' "$out" 2>/dev/null | tail -n 1; }
 
+# The component start scripts before this boot's setups: one a setup creates now is not in the
+# firmware's list for this boot, so this script runs it.
+had_inputd=0; [ -f "$starts/brickos-inputd.sh" ] && had_inputd=1
+had_osdd=0; [ -f "$starts/brickos-osdd.sh" ] && had_osdd=1
+had_ledd=0; [ -f "$starts/brickos-ledd.sh" ] && had_ledd=1
+had_mainui=0; [ -f "$starts/brickos-mainui.sh" ] && had_mainui=1
+start_new() {
+    [ "$had_inputd" = 0 ] && [ -f "$starts/brickos-inputd.sh" ] && sh "$starts/brickos-inputd.sh"
+    [ "$had_osdd" = 0 ] && [ -f "$starts/brickos-osdd.sh" ] && sh "$starts/brickos-osdd.sh"
+    [ "$had_ledd" = 0 ] && [ -f "$starts/brickos-ledd.sh" ] && sh "$starts/brickos-ledd.sh"
+    [ "$had_mainui" = 0 ] && [ -f "$starts/brickos-mainui.sh" ] && sh "$starts/brickos-mainui.sh"
+    return 0
+}
+
 # Online updates are already downloaded and confirmed. Activate them before any component is
 # started; the regular setup below remains the installer and fallback for the selected build.
+# activated: yes when the update was installed and committed (the marker names its build),
+# kept when it was installed but its commit failed (update-boot.sh exits 3).
+activated=
 if [ -f "$brickos/enabled" ] && [ -f "$brickos/settings/Updates/boot.sh" ] &&
     [ -x "$brickos/settings/Updates/brickos-update" ]; then
-    sh "$brickos/settings/Updates/boot.sh" || note "online update was not activated; continuing with the selected package"
+    before=$(head -n 1 "$brickos/enabled" 2>/dev/null)
+    sh "$brickos/settings/Updates/boot.sh"
+    case $? in
+        0) [ "$(head -n 1 "$brickos/enabled" 2>/dev/null)" = "$before" ] || activated=yes ;;
+        3) activated=kept
+            note "online update installed; its commit is retried at the next boot, and the enabled build is not set up again" ;;
+        *) note "online update was not activated; continuing with the selected package" ;;
+    esac
 fi
 
 # The package folders on the card, one per line.
@@ -62,7 +88,7 @@ rollback_without_package() {
             { rm -f "$launcher.brickos-tmp"; note "GameSwitcher's launcher ${launcher#"$root"} has no backup left; restore it by hand"; }
     done
     grep -qx '# BrickOS GameSwitcher app' "$sd/Apps/GameSwitcher/launch.sh" 2>/dev/null && rm -rf "$sd/Apps/GameSwitcher"
-    for file in "$sd"/Emus/*/launch.sh; do
+    for file in "$sd"/Emus/*/launch*.sh; do
         grep -q '# BrickOS in-game menu$' "$file" 2>/dev/null || continue
         sed 's|^LD_LIBRARY_PATH=/mnt/SDCARD/BrickOS/tmenu/[0-9a-f]*:\$LD_LIBRARY_PATH \(HOME=.*\) # BrickOS in-game menu$|\1|' \
             "$file" > "$file.brickos-tmp" && mv "$file.brickos-tmp" "$file"
@@ -85,19 +111,16 @@ if [ -f "$brickos/enabled" ]; then
     elif [ "$(packages | wc -l)" = 1 ]; then
         package=$(packages)
     fi
-    if [ -n "$package" ]; then
-        had_inputd=0; [ -f "$starts/brickos-inputd.sh" ] && had_inputd=1
-        had_osdd=0; [ -f "$starts/brickos-osdd.sh" ] && had_osdd=1
-        had_ledd=0; [ -f "$starts/brickos-ledd.sh" ] && had_ledd=1
-        had_mainui=0; [ -f "$starts/brickos-mainui.sh" ] && had_mainui=1
+    if [ "$activated" = kept ]; then
+        # The update's build is installed and the marker still names the previous one: setting
+        # that one up again would undo the update, so this boot keeps the update.
+        start_new
+    elif [ -n "$package" ]; then
         sh "$package/setup.sh" install --boot > "$out" 2>&1
         case "$(result)" in
-            installed|updated)
-                # Start scripts this run created were not in the firmware's list for this boot.
-                [ "$had_inputd" = 0 ] && [ -f "$starts/brickos-inputd.sh" ] && sh "$starts/brickos-inputd.sh"
-                [ "$had_osdd" = 0 ] && [ -f "$starts/brickos-osdd.sh" ] && sh "$starts/brickos-osdd.sh"
-                [ "$had_ledd" = 0 ] && [ -f "$starts/brickos-ledd.sh" ] && sh "$starts/brickos-ledd.sh"
-                [ "$had_mainui" = 0 ] && [ -f "$starts/brickos-mainui.sh" ] && sh "$starts/brickos-mainui.sh" ;;
+            installed|updated) start_new ;;
+            # The online update's setup created the start scripts before this run.
+            up-to-date) [ "$activated" = yes ] && start_new ;;
         esac
     elif [ -z "$(packages)" ]; then
         # No package at all: BrickOS is removed.

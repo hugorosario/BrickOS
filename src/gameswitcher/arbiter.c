@@ -22,7 +22,8 @@ void gs_arbiter_event(struct gs_arbiter *a,const struct input_event *e,uint64_t 
 enum gs_route gs_arbiter_poll(const struct gs_arbiter *a,uint64_t now) {
     if (now<a->opened_ms || now-a->opened_ms>=1500) return GS_ROUTE_CANCEL;
     if (a->guide || a->select || a->start) return GS_ROUTE_WAIT;
-    if (a->chord) return a->chord;
+    if (a->chord) return a->swapped && a->chord==GS_ROUTE_MENU?GS_ROUTE_SWITCHER:a->chord;
+    if (a->single) return a->swapped?GS_ROUTE_MENU:GS_ROUTE_SWITCHER;
     if (now-a->opened_ms<280) return GS_ROUTE_WAIT;
-    return a->second?GS_ROUTE_PREVIOUS:GS_ROUTE_SWITCHER;
+    return a->second?GS_ROUTE_PREVIOUS:a->swapped?GS_ROUTE_MENU:GS_ROUTE_SWITCHER;
 }

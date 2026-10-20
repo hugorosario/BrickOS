@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 #include "bridge.h"
 #include "gesture.h"
+#include "policy.h"
 #include <dlfcn.h>
 #include <pthread.h>
 #include <stdatomic.h>
@@ -37,6 +38,10 @@ static void open_session(void) {
     pending.directory=pending.lock=-1;
     if (gs_session_environment(&session,gs_observer_session) || gs_store_open_namespace(&store,session.sd,session.store_name)) return;
     if (gs_gesture_start()) { gs_store_close(&store); return; }
+    // The player's GUIDE choices, as Settings > GameSwitcher left them when this game started.
+    struct gs_policy policy;
+    if (gs_policy_load(&store,&policy)) gs_policy_defaults(&policy);
+    gs_gesture_configure(policy.double_tap,policy.guide_menu);
     enabled=1;
     initial_resume=getenv("BRICKOS_GS_RESUME")!=NULL;
     atomic_store(&active_owed,initial_resume ? 0:1);

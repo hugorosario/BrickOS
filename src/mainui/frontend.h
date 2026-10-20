@@ -87,7 +87,9 @@ struct mainui_frontend {
     int app_count;
     int shown_apps[256];            // the Apps tab: indexes into apps
     int shown_app_count;
-    struct mainui_app *ports;       // /mnt/SDCARD/Ports and /mnt/exUDISK/Ports
+    int gameswitcher_off;           // Settings > GameSwitcher turned it off: no app, no card
+    uint64_t gameswitcher_read_ms;  // the last read of that switch
+    struct mainui_app *ports;      // /mnt/SDCARD/Ports and /mnt/exUDISK/Ports
     struct mainui_system *bests;    // /mnt/SDCARD/Best and /mnt/exUDISK/Best
     int best_count, shown_best_count, shown_bests[128];
     int best_game_counts[128];
@@ -371,6 +373,11 @@ int mainui_frontend_key_at(struct mainui_frontend *fe, enum mainui_key key, uint
 // Returns 1 when a shown value changed.
 int mainui_frontend_sync(struct mainui_frontend *fe);
 int mainui_frontend_event(struct mainui_frontend *fe, enum mainui_event event);
+// In model.c: Apps or GameSwitcher's desktop card came or went. A focused card that went hands
+// the focus to the shortcut before it, and the desktop row and the Apps page fit what is left.
+// Declared here, not in model.h: the OSD, the menu and GameSwitcher include model.h, and a new
+// declaration there renumbers their static symbols, so their bytes would change.
+void mainui_model_catalog_changed(struct mainui_model *m);
 // File-browser selection: total/free_bytes are the SD statvfs byte counts
 // f_bsize*f_blocks and f_bsize*f_bfree (including reserved blocks), not the
 // selected file's size. Returns 1 for the confirmation, 0 for the low-space notice,

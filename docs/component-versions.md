@@ -104,8 +104,10 @@ prints the complete installed metadata; `status` supplies the menu placeholders.
 
 The updater compares semantic release versions before downloading. After checking
 the complete ZIP and ordinary file manifest it also requires the package version
-to match the GitHub tag, refuses component downgrades, and refuses changed payloads
-with unchanged component versions. The check repeats before boot installation.
+to match the GitHub tag and refuses release and component downgrades; components it
+does not know are accepted. The rule that a changed payload needs a newer version stays
+with `--previous` at packaging, since a development card may hold other bytes under the
+same versions. The check repeats before boot installation.
 An interrupted final commit can retry the same verified versions. Installations
 without version metadata bootstrap through their first versioned package and use
 the earlier asset/build checks until then.

@@ -33,12 +33,15 @@ static int valid_name(const char *name) {
     }
     return at>0;
 }
+// The package's own folder, the marker, and any other file of the card's root that the manifest
+// lists (as ../../../PATH), so that a later release may add one: every entry is staged in the
+// private package tree only, and the commit copies just the boot script and the marker out of it.
+// Names were checked by valid_name; another build's package folder is never accepted.
 static int allowed(const char *name, const char *build, int folder) {
     char prefix[80];snprintf(prefix,sizeof(prefix),"BrickOS/package/%s/",build);
     if(!strncmp(name,prefix,strlen(prefix)))return 1;
-    if(!folder)return !strcmp(name,"BrickOS/enabled") || !strcmp(name,UPDATE_BOOT);
-    return !strcmp(name,"BrickOS/") || !strcmp(name,"BrickOS/package/") ||
-        !strcmp(name,"System/") || !strcmp(name,"System/starts/");
+    if(!strncmp(name,"BrickOS/package/",16))return folder && !strcmp(name,"BrickOS/package/");
+    return 1;
 }
 static unsigned char *expand(const unsigned char *zip, const struct entry *e) {
     unsigned char *bytes=malloc((size_t)e->size+1);if(!bytes)return NULL;
@@ -65,8 +68,10 @@ static int manifest_check(char *text, size_t length, struct entry *entries, unsi
         unsigned long long size;int start=0;
         if(sscanf(line,"%64s %llu %n",hash,&size,&start)!=2 || !start || !update_hex(hash,64))return -1;
         const char *path=line+start;char name[256];
-        if(!strcmp(path,"../../../" UPDATE_BOOT))snprintf(name,sizeof(name),"%s",UPDATE_BOOT);
-        else {
+        if(!strncmp(path,"../../../",9)) {
+            if(!valid_name(path+9) || strlen(path+9)>180)return -1;
+            snprintf(name,sizeof(name),"%s",path+9);
+        } else {
             if(!valid_name(path) || strlen(path)>180)return -1;
             snprintf(name,sizeof(name),"BrickOS/package/%s/%s",build,path);
         }

@@ -17,7 +17,7 @@
 # GameSwitcher, menu, and rolls back in the reverse order. MainUI's helper is
 # mainui/mainui-install.sh and GameSwitcher's is gameswitcher/gameswitcher-setup.sh; the others
 # are helpers/<component>-install.sh. GameSwitcher takes the RetroArch launchers its launch check
-# accepts, from Emus/*/launch*.sh, and the menu goes into every other /mnt/SDCARD/Emus/*/launch.sh
+# accepts, from Emus/*/launch*.sh, and the menu goes into every other /mnt/SDCARD/Emus/*/launch*.sh
 # with exactly one standard RetroArch command. An activation by GameSwitcher's own earlier
 # installer is undone first, before the input daemon, whose producer it then no longer is.
 # Writes stay under /mnt/SDCARD: BrickOS/, the BrickOS start scripts in System/starts/, the
@@ -248,11 +248,12 @@ menu_launchers() {
     launchers=$list
 }
 
-# The launchers the menu may change. A path the helpers cannot take as a plain word is skipped.
+# The launchers the menu may change, a system's other emulators' launchers included, as GameSwitcher
+# scans them. A path the helpers cannot take as a plain word is skipped.
 discover() {
     local file path
     launchers=''; odd_launchers=''
-    for file in "$sd"/Emus/*/launch.sh; do
+    for file in "$sd"/Emus/*/launch*.sh; do
         [ -f "$file" ] || continue
         path=$(device "$file")
         case "$path" in
@@ -516,6 +517,11 @@ assess() {
             "plan runtime "*) echo "write $path/ $action" ;;
             "plan entry "*) echo "write $path $action" ;;
             "plan app "*) for file in config.json icon.png launch.sh; do echo "write $path/$file $(packaged_hash "gameswitcher/app/$file")"; done ;;
+            "plan settings "*)
+                for file in GameSwitcher.json icon.png lang/pt.json menu.sh; do
+                    echo "write $path/$file $(packaged_hash "gameswitcher/settings/$file")"
+                done
+                echo "write $path/systems/systems.json" ;;
             "plan remove "*) echo "remove $path" ;;
             "plan launcher install"|"plan launcher from-menu"|"plan launcher migrate"|"plan launcher update")
                 echo "launcher_change=$path gameswitcher $action"
@@ -621,7 +627,8 @@ snapshot() {
         "$brickos/inputd" "$brickos/osd" "$brickos/ledd" "$brickos/tmenu" "$brickos/mainui" \
         "$brickos/gameswitcher/runtime" "$brickos/gameswitcher/entry.sh" "$brickos/gameswitcher/install-record" \
         "$brickos/gameswitcher/launchers" "$brickos/gameswitcher/activation-record" "$brickos/gameswitcher/DISABLED" \
-        "$installed_copy" "$setup_record" "$versions_file" "$app" "$sd/Apps/GameSwitcher" "$updater"; do
+        "$installed_copy" "$setup_record" "$versions_file" "$app" "$sd/Apps/GameSwitcher" "$updater" \
+        "$brickos/settings/GameSwitcher"; do
         n=$((n + 1))
         if [ -e "$path" ]; then
             cp -pR "$path" "$work/undo/$n" || return 1
@@ -654,7 +661,8 @@ restore() {
         cp -p "$work/undo/wallpapers/$name" "$brickos/wallpapers/$name"
         rm -f "$brickos/wallpapers/$name.brickos-tmp"
     done < "$work/replaced"
-    rm -rf "$app.brickos-tmp" "$app.brickos-old" "$sd/Apps/GameSwitcher.brickos-tmp" "$sd/Apps/GameSwitcher.brickos-old"
+    rm -rf "$app.brickos-tmp" "$app.brickos-old" "$sd/Apps/GameSwitcher.brickos-tmp" "$sd/Apps/GameSwitcher.brickos-old" \
+        "$brickos/settings/GameSwitcher.brickos-tmp" "$brickos/settings/GameSwitcher.brickos-old"
     sed -n 's/^0 folder //p' "$work/undo/list" | sort -r | while IFS= read -r path; do rmdir "$path" 2>/dev/null; done
     sync
 }

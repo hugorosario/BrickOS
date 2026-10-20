@@ -9,6 +9,7 @@ BRICKOS_DECLARE_COMPONENT("gameswitcher", BRICKOS_VERSION_GAMESWITCHER);
 #include "power_control.h"
 #include "standby.h"
 #include "policy.h"
+#include "tool.h"
 #include <errno.h>
 #include <dlfcn.h>
 #include <fcntl.h>
@@ -348,7 +349,7 @@ static int game(struct gs_store *store,struct gs_session *s,const struct gs_entr
                     now<power_deadline && m.success && !gs_stage_received(store,&s->identity,&prepared)) {
                     struct gs_receipt receipt={.complete=1}; memcpy(receipt.transaction,prepared.transaction,GS_ID);
                     success=gs_store_publish(store,&s->identity,&prepared,&receipt)==0;
-                    if (success) memcpy(published,receipt.transaction,GS_ID);
+                    if (success) { memcpy(published,receipt.transaction,GS_ID); gs_policy_trim_history(store); }
                 }
                 int shutdown=success && power_control_enabled && power_current.kind==GS_POWER_LONG;
                 if (shutdown) {
@@ -510,6 +511,8 @@ int main(int argc,char **argv) {
     for (int i=1;i<argc;++i) {
         if (!strcmp(argv[i],"--sd") && i+1<argc) sd=argv[++i];
         else if (!strcmp(argv[i],"--namespace") && i+1<argc) name=argv[++i];
+        // Settings > GameSwitcher's commands take the rest of the line.
+        else if (!strcmp(argv[i],"--settings")) return gs_settings_command(sd,name,argc-i-1,argv+i+1);
         else if (!strcmp(argv[i],"--probe-power") && i+1<argc) power_directory=argv[++i];
         else if (!strcmp(argv[i],"--probe-power-checkpoint") && i+1<argc) { power_directory=argv[++i]; power_checkpoint_probe=1; }
         else if (!strcmp(argv[i],"--power-control") && i+1<argc) {

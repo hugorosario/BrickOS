@@ -7,6 +7,7 @@
 #include "guard.h"
 #include "standby.h"
 #include "policy.h"
+#include "history.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
@@ -45,9 +46,11 @@ static int find_choice(struct gs_store *s,const struct gs_choice_message *choice
     gs_index_close(&index); return result;
 }
 static int previous(struct gs_store *s,const struct gs_identity *current,struct gs_entry *entry) {
-    struct gs_index index; if (gs_store_load(s,&index)) return -1;
+    struct gs_excluded excluded; struct gs_index index;
+    if (gs_excluded_load(s,&excluded) || gs_store_load(s,&index)) return -1;
     int result=-1;
     for (size_t i=0;i<index.count;++i) if (strcmp(current->rom,index.entries[i].identity.rom) &&
+        !gs_excluded_entry(s,&excluded,&index.entries[i]) &&
         !gs_entry_resumable(s,&index.entries[i])) { *entry=index.entries[i]; result=0; break; }
     gs_index_close(&index); return result;
 }

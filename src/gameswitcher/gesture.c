@@ -10,6 +10,7 @@ void gs_gesture_event(struct gs_gesture *g,const struct input_event *e,uint64_t 
     if (!held || *held==e->value) return;
     if (e->code==BTN_MODE && e->value && (!g->recording || g->fault || at>=g->arbiter.opened_ms+1500)) {
         gs_arbiter_init(&g->arbiter,at,1,g->select,g->start); g->recording=1; g->fault=0;
+        g->arbiter.single=g->single; g->arbiter.swapped=g->swapped;
     } else if (g->recording) gs_arbiter_event(&g->arbiter,e,at);
     *held=e->value;
 }

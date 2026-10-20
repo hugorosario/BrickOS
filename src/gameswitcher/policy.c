@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include "policy.h"
+#include "history.h"
 #include "../mainui/json.h"
 #include <errno.h>
 #include <fcntl.h>
@@ -9,26 +10,98 @@
 #include <strings.h>
 #include <sys/stat.h>
 #include <unistd.h>
-void gs_policy_defaults(struct gs_policy *p) { *p=(struct gs_policy){15,4,1}; }
-static int integer(const struct mainui_json *json,const char *key,int *value) {
-    const struct mainui_json_member *m=mainui_json_get(json,key);
-    if (!m) return 0;
+void gs_policy_defaults(struct gs_policy *p) { *p=(struct gs_policy){15,4,1,1,0,0}; }
+static const char *const keys[]={"warning_percent","critical_percent","auto_resume","double_tap","guide_menu","history_limit"};
+#define KEYS (sizeof(keys)/sizeof(keys[0]))
+static int *field(struct gs_policy *p,size_t key) {
+    int *fields[KEYS]={&p->warning,&p->critical,&p->auto_resume,&p->double_tap,&p->guide_menu,&p->history_limit};
+    return fields[key];
+}
+static int key_index(const char *key) {
+    for (size_t i=0;i<KEYS;++i) if (!strcasecmp(key,keys[i])) return (int)i;
+    return -1;
+}
+static int valid(const struct gs_policy *p) {
+    return p->warning>=2 && p->warning<=99 && p->critical>=1 && p->critical<p->warning &&
+           p->auto_resume<=1 && p->double_tap<=1 && p->guide_menu<=1 && p->history_limit>=0 && p->history_limit<=100;
+}
+static int integer(const struct mainui_json_member *m,int *value) {
     if (m->type!=MAINUI_JSON_NUMBER || m->number<0 || m->number>100 || (int)m->number!=m->number) return -1;
     *value=(int)m->number; return 0;
 }
-int gs_policy_load(struct gs_store *s,struct gs_policy *p) {
-    gs_policy_defaults(p);
+// The file's text and its members; json->count is 0 without a file. -1 when it cannot be read or
+// is not a flat object that fits.
+static int read_settings(struct gs_store *s,struct mainui_json *json) {
+    json->count=0;
     int fd=openat(s->directory,"settings.json",O_RDONLY|O_CLOEXEC|O_NOFOLLOW);
     if (fd<0) return errno==ENOENT?0:-1;
     struct stat st; char text[4096]; ssize_t n=read(fd,text,sizeof(text));
     int regular=!fstat(fd,&st) && S_ISREG(st.st_mode); close(fd);
+    if (!regular || n<=0 || n==(ssize_t)sizeof(text) || mainui_json_parse(json,text,(size_t)n)) { errno=EINVAL; return -1; }
+    return 0;
+}
+static int apply(const struct mainui_json *json,struct gs_policy *p) {
+    for (size_t i=0;i<KEYS;++i) {
+        const struct mainui_json_member *m=mainui_json_get(json,keys[i]);
+        if (m && integer(m,field(p,i))) return -1;
+    }
+    return valid(p)?0:-1;
+}
+int gs_policy_load(struct gs_store *s,struct gs_policy *p) {
+    gs_policy_defaults(p);
     struct mainui_json *json=malloc(sizeof(*json)); if (!json) return -1;
     struct gs_policy next=*p;
-    int result=!regular || n<=0 || n==(ssize_t)sizeof(text) || mainui_json_parse(json,text,(size_t)n) ||
-        integer(json,"warning_percent",&next.warning) || integer(json,"critical_percent",&next.critical) ||
-        integer(json,"auto_resume",&next.auto_resume) || next.warning<2 || next.warning>99 ||
-        next.critical<1 || next.critical>=next.warning || next.auto_resume>1;
+    int result=read_settings(s,json) || apply(json,&next);
     free(json); if (result) return -1; *p=next; return 0;
+}
+static int write_member(FILE *file,int *first,const char *key,const char *value) {
+    char escaped[MAINUI_JSON_KEY*6+3];
+    if (mainui_json_escape(escaped,sizeof(escaped),key,strlen(key))<0) return -1;
+    int n=fprintf(file,"%s%s:%s",*first?"":",",escaped,value); *first=0; return n<0?-1:0;
+}
+int gs_policy_set(struct gs_store *s,const char *key,int value) {
+    int index=key_index(key);
+    if (index<0) { errno=EINVAL; return -1; }
+    struct mainui_json *json=malloc(sizeof(*json)); if (!json) return -1;
+    // The values in use, as a session reads them: a file that does not parse keeps no member.
+    struct gs_policy p; (void)gs_policy_load(s,&p);
+    if (read_settings(s,json)) json->count=0;
+    *field(&p,(size_t)index)=value;
+    if (!valid(&p)) { free(json); errno=EINVAL; return -1; }
+    int result=-1,first=1,written=0; char number[32];
+    (void)unlinkat(s->directory,"settings.json.brickos-tmp",0);
+    int fd=openat(s->directory,"settings.json.brickos-tmp",O_CREAT|O_EXCL|O_WRONLY|O_CLOEXEC|O_NOFOLLOW,0600);
+    FILE *file=fd<0?NULL:fdopen(fd,"w");
+    if (!file) { if (fd>=0) close(fd); free(json); return -1; }
+    if (fputc('{',file)==EOF) goto done;
+    for (size_t i=0;i<json->count;++i) {
+        const struct mainui_json_member *m=&json->members[i];
+        int known=key_index(m->key);
+        char value_text[MAINUI_JSON_TEXT*6+3];
+        if (known>=0) {
+            snprintf(number,sizeof(number),"%d",*field(&p,(size_t)known));
+            if (write_member(file,&first,keys[known],number)) goto done;
+            if (known==index) written=1;
+            continue;
+        }
+        if (m->type==MAINUI_JSON_STRING) {
+            if (mainui_json_escape(value_text,sizeof(value_text),m->text,m->text_length)<0) goto done;
+        } else if (m->type==MAINUI_JSON_NUMBER) {
+            if (m->number>-1e15 && m->number<1e15 && m->number==(double)(long long)m->number)
+                snprintf(value_text,sizeof(value_text),"%lld",(long long)m->number);
+            else snprintf(value_text,sizeof(value_text),"%.17g",m->number);
+        } else snprintf(value_text,sizeof(value_text),"%s",m->text);
+        if (write_member(file,&first,m->key,value_text)) goto done;
+    }
+    snprintf(number,sizeof(number),"%d",value);
+    if (!written && write_member(file,&first,keys[index],number)) goto done;
+    if (fputs("}\n",file)==EOF || fflush(file) || fsync(fileno(file))) goto done;
+    result=0;
+done:
+    if (fclose(file)) result=-1;
+    if (!result && (renameat(s->directory,"settings.json.brickos-tmp",s->directory,"settings.json") || fsync(s->directory))) result=-1;
+    if (result) (void)unlinkat(s->directory,"settings.json.brickos-tmp",0);
+    free(json); return result;
 }
 enum gs_battery_action gs_battery_update(struct gs_battery *s,const struct gs_policy *p,int capacity,int charging) {
     if (capacity<0 || capacity>100 || charging<0) return GS_BATTERY_NONE;
@@ -41,13 +114,23 @@ enum gs_battery_action gs_battery_update(struct gs_battery *s,const struct gs_po
     if (capacity<p->warning && !s->warned) { s->warned=1; return GS_BATTERY_WARN; }
     return GS_BATTERY_NONE;
 }
+void gs_policy_trim_history(struct gs_store *s) {
+    struct gs_policy p; size_t removed=0;
+    if (gs_policy_load(s,&p) || !p.history_limit) return;
+    if (gs_history_trim(s,(unsigned)p.history_limit,&removed))
+        fprintf(stderr,"GameSwitcher history limit %d failed: %s\n",p.history_limit,strerror(errno));
+    else if (removed) fprintf(stderr,"GameSwitcher history limit %d removed=%zu\n",p.history_limit,removed);
+}
 int gs_boot_target(struct gs_store *s,const struct gs_resume *resume,struct gs_entry *entry) {
     if (!resume || !*resume->id) return 0;
-    struct gs_index index; if (gs_store_load(s,&index)) return -1;
+    struct gs_excluded excluded; struct gs_index index;
+    if (gs_excluded_load(s,&excluded) || gs_store_load(s,&index)) return -1;
     int result=0;
     for (size_t i=0;i<index.count;++i) if (!index.entries[i].hidden && *index.entries[i].state) {
         // Only the checkpoint the shutdown saved; a newer one means the player went on.
         if (strcmp(index.entries[i].id,resume->id) || strcmp(index.entries[i].transaction,resume->transaction)) break;
+        // A system the player excluded since starts at Home.
+        if (gs_excluded_entry(s,&excluded,&index.entries[i])) break;
         result=gs_entry_resumable(s,&index.entries[i])? -1:1;
         if (result>0) *entry=index.entries[i];
         break;
