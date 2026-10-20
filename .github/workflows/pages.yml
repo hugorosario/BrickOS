@@ -8,7 +8,8 @@ on:
       - 'tools/build-site.mjs'
       - 'docs/screenshots/**'
       - '.github/workflows/pages.yml'
-  # The site shows the latest published release, so a new release rebuilds it.
+  # The site shows the latest published release, so a new release rebuilds it. The
+  # github-pages environment deploys only from main, so a release runs this workflow on main.
   release:
     types: [published]
   workflow_dispatch:
@@ -21,16 +22,26 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  on-main:
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Run the website workflow on main
+        run: gh workflow run pages.yml --repo "$GITHUB_REPOSITORY" --ref "$DEFAULT_BRANCH"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+
   build:
+    if: github.event_name != 'release'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pages: read
     steps:
-      # The site comes from main also when a release triggers the build.
       - uses: actions/checkout@v6
-        with:
-          ref: ${{ github.event.repository.default_branch }}
       - uses: actions/setup-node@v6
         with:
           node-version: '24'

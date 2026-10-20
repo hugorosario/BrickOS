@@ -34,9 +34,9 @@ available to visitors.
 
 Select **GitHub Actions** as the publishing source in the repository's
 **Settings → Pages**. The workflow in `.github/workflows/pages.yml` builds and
-deploys the site after relevant changes are pushed to `main`, and when a release
-is published. It always builds the site from `main`. It can also be run manually
-from Actions. Only `dist/site/` is uploaded; repository sources, local
+deploys the site after relevant changes are pushed to `main`. When a release is
+published, it runs itself again on `main`, because the `github-pages` environment
+deploys only from `main`. It can also be run manually from Actions. Only `dist/site/` is uploaded; repository sources, local
 publication controls and firmware release ZIPs are not part of the website.
 
 GitHub project sites inherit a custom domain configured on the account's
