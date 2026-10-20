@@ -15,6 +15,14 @@ setup. Both Stock++ and BrickOS then show **Settings → Updates**:
   boot the frontend starts the monitor before Wi-Fi has its address, so the first check
   often fails and the retry a minute later succeeds. A single monitor survives frontend/game return.
 - **Check now** checks immediately, including when automatic checks are disabled.
+- **What's new** shows the available update's short changelog: its tag, then the bullets
+  of the changelog block in its release notes (see [Changelog](#changelog)).
+  - **When.** It is dimmed until a check has found an update that Install update would take. After that update is installed, it is dimmed again.
+  - **Offline.** It reads only the reply the last check saved (`BrickOS/updates/release.json`), so it works offline and downloads nothing.
+  - **Notes without a block.** Such a release shows that it has no short changelog.
+  - **What it shows.**
+    - Only the bullet lines show, as plain text. Markdown markers, braces, backslashes, control characters and invalid UTF-8 are removed: MainUI would read `{{tags}}` and `\n` in a script's output.
+    - It shows at most 40 lines and 4 KiB, and says "(changelog cut)" when there is more.
 - **Install update** checks the latest stable release and asks for confirmation.
   Cancel or leaving the confirmation unanswered downloads nothing. Confirming
   downloads and prepares the package; installation happens at the next normal boot.
@@ -31,6 +39,9 @@ stable release is a normal status, not an installation error.
 
 The menu also shows the installed BrickOS release and a **Component versions**
 submenu. Versions come from the installed package metadata, not from its Git hash.
+With the system language set to Portuguese, the screen's labels and descriptions are in
+Portuguese (`lang/pt.json` in the Updates folder). Changelogs and the statuses the
+updater writes stay in English.
 See [component versions](component-versions.md) for bump commands and package checks.
 
 ## Runtime requirements
@@ -97,6 +108,19 @@ original `brickos-<build>.zip` name. GitHub's asset API supplies the SHA-256 dig
 Use tag `v<release-version>` or `<release-version>` matching the package metadata.
 Automatic checking starts seeing it after it is published. Existing installations
 without the updater need one manual package update to bootstrap the feature.
+
+### Changelog
+
+`CHANGELOG.md` holds a short entry for each release.
+- **Format.** Under `## <version>`, newest first, there are one to six `- ` bullets of plain English, at most 160 characters each. No Markdown emphasis, links, code or HTML: the device shows them as they are.
+- **Check.** `node tools/changelog.mjs check` validates the file.
+- **Release builds.** A release build (`--previous`) refuses a release without a valid entry. Development builds do not read the changelog.
+
+To publish a release's entry:
+1. Write its entry when the release version is set.
+2. Run `node tools/changelog.mjs notes <version>`. It prints the entry between `<!-- brickos-changelog -->` and `<!-- /brickos-changelog -->`.
+3. Put that block once in the release notes as the release's short summary, for example right under "What's new". GitHub does not show the markers.
+4. After publishing, read the release body through the API and check that it holds the block. Settings → Updates shows it as **What's new**.
 
 The updater follows GitHub's selected latest stable release and compares its semantic
 version with installed metadata. It rejects release/component downgrades. The rule that a

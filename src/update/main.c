@@ -287,8 +287,44 @@ static int commit(const char *build) {
     }
     return update_sync_dir(state);
 }
+// The update the last check saved in release.json, when Install update would still take it: a
+// stable release with one package asset, newer than the installed release, for another build
+// than the enabled one. release.json alone means nothing: an "Up to date" check leaves the one an
+// earlier check saved, which then describes the release now installed.
+static int saved_update(struct update_release *release) {
+    char path[UPDATE_PATH],metadata[UPDATE_PATH],current[13];
+    if(file_path(path,"release.json") || !update_regular(path) || update_parse_release(path,release))return 0;
+    if(current_metadata(metadata) && update_regular(metadata)) {
+        struct update_versions versions;int order;
+        if(update_versions_load(metadata,&versions) || brickos_semver_compare(release->version,versions.release,&order) || order<=0)
+            return 0;
+    }
+    installed(current);
+    return strcmp(current,release->build)!=0;
+}
+// What's new: the available update's tag and its changelog block, from the saved reply only.
+// It always exits 0, so the output view never shows a failure for notes without a block.
+static int changelog(void) {
+    // MainUI shows a script's error output in the view: only what is meant for it goes there.
+    if(!freopen("/dev/null","w",stderr)){}
+    struct update_release release;
+    if(!saved_update(&release)){puts("No update available.");return 0;}
+    char path[UPDATE_PATH];char *body=file_path(path,"release.json")?NULL:update_release_body(path);
+    // At most 40 lines and 4 KiB in all, the tag and the cut line included.
+    static const char cut_line[]="(changelog cut)";
+    static char lines[4096];int cut=0;
+    size_t budget=sizeof(lines)-strlen(release.tag)-1-sizeof(cut_line);
+    int count=update_changelog_lines(body,lines,budget,40-2,&cut);
+    free(body);
+    if(count<=0){printf("%s has no short changelog. Its release notes are on GitHub.\n",release.tag);return 0;}
+    printf("%s\n%s",release.tag,lines);
+    if(cut)puts(cut_line);
+    return 0;
+}
 static int status(void) {
     char message[160],current[13];get("state",message,sizeof(message));installed(current);
+    struct update_release available;
+    printf("{{disable(whats-new)=%d}}\n",!saved_update(&available));
     if(pending_current(0))strcpy(message,"Update prepared; restart to install");
     printf("{{update_status=%s}}\n{{update_installed=%s}}\n{{update_auto=%d}}\n",message[0]?message:"Not checked yet",current[0]?current:"Unknown",!exists("disabled"));
     char path[UPDATE_PATH];struct update_versions versions;int known=0;
@@ -337,6 +373,7 @@ int main(int argc,char **argv) {
         unsigned char *bytes=update_read(path,512*1024,&length);if(!bytes)return 1;
         fwrite(bytes,1,length,stdout);free(bytes);return 0;
     }
+    if(argc==2 && !strcmp(argv[1],"changelog"))return changelog();
     if(argc==2 && !strcmp(argv[1],"monitor"))return monitor()?1:0;
     if(argc==3 && !strcmp(argv[1],"auto")) {
         if(!strcmp(argv[2],"0"))return put("disabled","1\n")?1:0;
@@ -350,6 +387,6 @@ int main(int argc,char **argv) {
     else if(argc==3 && !strcmp(argv[1],"commit"))result=commit(argv[2]);
     else if(argc==2 && !strcmp(argv[1],"failed")){result=set_state("Installation failed; previous build retained") || remove_file("pending-from") || remove_file("pending");}
     else if(argc==2 && !strcmp(argv[1],"discard")){result=set_state("Prepared update dropped: another build is installed") || remove_file("pending-from") || remove_file("pending");}
-    else update_error("usage: brickos-update check|prepare|status|monitor|auto 0|1|verify BUILD|commit BUILD|failed|discard");
+    else update_error("usage: brickos-update check|prepare|status|changelog|monitor|auto 0|1|verify BUILD|commit BUILD|failed|discard");
     close(lock);return result?1:0;
 }

@@ -172,6 +172,10 @@ struct mainui_frontend {
     // publication. Same-theme selection and dry effects invoke no audio callback.
     void *theme_context;
     void (*theme_audio)(void *context, const struct mainui_fs *fs, const char *theme);
+    // The rows of an extension's output view once its long lines wrap, which only the renderer
+    // can measure (mainui_render_text_rows). Without it, as in tests and dry runs, a row is a line.
+    void *text_rows_context;
+    int (*text_rows)(void *context, const char *text);
     // Rumble preview owns a cancellable monotonic 200 ms wait, independent of
     // UI ticks. Its immutable writer snapshot remains valid until close joins.
     struct mainui_effect_ops rumble_ops;

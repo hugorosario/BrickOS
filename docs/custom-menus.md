@@ -79,6 +79,8 @@ Successful loads can print tags to set values without showing those tags as text
 | `{{name=value}}` | Fill `{{name}}` in the extension's text |
 
 For commands, `output` is `none`, `line` or `full`. Errors show their output.
+The `full` view breaks a line wider than the screen at spaces onto more rows, in Stock++
+and BrickOS, and scrolls by those rows; only a word wider than the view is cut with "...".
 Commands run asynchronously; B cancels an active command. Loads have a five-second
 limit, toggle/choice/range commands a thirty-second limit. Standalone commands
 remain cancellable. A failed load leaves the existing displayed state unchanged.

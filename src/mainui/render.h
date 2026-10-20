@@ -162,6 +162,9 @@ void mainui_render_frame(struct mainui_renderer *r, struct mainui_frontend *fe);
 void mainui_render_frame_at(struct mainui_renderer *r, struct mainui_frontend *fe, uint64_t now_ms);
 int mainui_render_animating(const struct mainui_renderer *r, const struct mainui_frontend *fe);
 int mainui_render_frame_due(const struct mainui_renderer *r, const struct mainui_frontend *fe, uint64_t now_ms);
+// The rows of a settings extension's output view for TEXT after its long lines wrap, with the
+// view's font and width in the renderer's presentation: the frontend's text_rows hook.
+int mainui_render_text_rows(void *renderer, const char *text);
 // Decodes ahead, in a worker, the pictures BrickOS's next step may need: the system backgrounds of
 // the Games or Bests focus's neighbours, the covers that a Carousel step brings in, and on the
 // Home the other destinations' wallpapers, whose cards out of view it also makes, one a turn. Call

@@ -344,8 +344,10 @@ exports. It compiles the ten runtime artifacts listed above.
 
 **Settings → Updates** is available in Stock++ and BrickOS. It checks the public
 GitHub repository automatically at frontend startup and every six hours. A new
-stable release raises a notification; **Install update** asks for confirmation
-before downloading. The verified package is applied at the next normal boot.
+stable release raises a notification; **What's new** shows its short changelog
+(`CHANGELOG.md`), and **Install update** asks for confirmation before downloading.
+The verified package is applied at the next normal boot. The screen is also
+translated into Portuguese.
 Wi-Fi, HTTPS-capable curl and a valid CA trust store are required on the device.
 See [GitHub updates](docs/updates.md) for details.
 

@@ -22,7 +22,7 @@ change was confirmed for the capture.
 | LEDs | Battery, CPU, temperature and charging policies, plus custom effect, colour and cycle duration | Settings → Display → LED Policy |
 | Boot visuals | Independent bootlogo and splashscreen browsers with previews, applied-image identification and Random mode | Settings → Themes |
 | Loading screens | Browse and preview RetroArch loading-screen presets, with verified replacement of a complete preset | Settings → Themes → Loading Screen |
-| Updates | Automatic checks of the public GitHub repository; confirmation before downloading, validation and installation at the next normal boot | Settings → Updates |
+| Updates | Automatic checks of the public GitHub repository; a short changelog of the available update (What's new); confirmation before downloading, validation and installation at the next normal boot | Settings → Updates |
 | Component versions | A release version and separate versions for ten components, alongside exact build IDs and file hashes | Settings → Updates → Component versions |
 | GameSwitcher | Checkpoints, recent-game cards, quick switching, active play time and save-aware power handling for compatible RetroArch games. It can be turned off, GUIDE can open the in-game menu instead, systems can be excluded, and the history can be limited, cleared or measured | Apps → GameSwitcher; GUIDE in a managed game; Settings → GameSwitcher |
 | Experimental frontend | Alternative desktop, appearance controls and configurable list/grid/carousel views | Settings → Themes → Frontend → BrickOS |

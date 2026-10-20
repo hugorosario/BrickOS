@@ -69,8 +69,10 @@ node tools/release-package.mjs --out dist --previous dist/brickos-<previous-buil
 The second command validates against a previous versioned ZIP; `--previous` also
 accepts an extracted package `versions.json`. It requires a newer release version,
 refuses component downgrades, and requires a newer component version whenever that
-component's payload fingerprint changes. Development packaging without a baseline
-is allowed, but stale/mislabeled native binaries are always rejected.
+component's payload fingerprint changes. It also requires a valid entry for the
+release in `CHANGELOG.md` (see [the changelog](updates.md#changelog)). Development
+packaging without a baseline is allowed and does not read the changelog, but
+stale/mislabeled native binaries are always rejected.
 
 For a full build and comparison in one command, use
 `scripts/release.ps1 -Previous dist/brickos-<previous-build>.zip` on Windows or

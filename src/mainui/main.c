@@ -485,6 +485,8 @@ int main(int argc, char **argv) {
         goto cleanup;
     }
     renderer.presentation = presentation;
+    fe.text_rows_context = &renderer;
+    fe.text_rows = mainui_render_text_rows;
     renderer.animations_enabled = 1;
     renderer.home_cache_enabled = 1;
     mainui_render_early_take(&renderer, &early);
@@ -789,6 +791,8 @@ cleanup:
     fe.bgm_context = NULL;
     fe.theme_audio = NULL;
     fe.theme_context = NULL;
+    fe.text_rows = NULL;
+    fe.text_rows_context = NULL;
     if (audio_started) mainui_audio_close(&audio);
     if (audio.volume_failures) fprintf(record, "audio volume timer failures=%d\n", (int)audio.volume_failures);
     for (int c = 0; c < CONTROLLERS; ++c)

@@ -29,4 +29,14 @@ void update_sha(const void *data, size_t length, char out[65]);
 int update_hash_file(const char *path, char out[65]);
 int update_stage(const char *zip, const char *directory, const struct update_release *release, int verify);
 int update_parse_release(const char *path, struct update_release *release);
+
+// The release notes' changelog block, which tools/changelog.mjs writes into them.
+#define UPDATE_CHANGELOG_OPEN "<!-- brickos-changelog -->"
+#define UPDATE_CHANGELOG_CLOSE "<!-- /brickos-changelog -->"
+// The release notes ("body") of a saved release reply, or NULL; the caller frees it.
+char *update_release_body(const char *path);
+// The bullets of the notes' changelog block as plain "- " lines, each ending in a newline, at
+// most max_lines of them and size - 1 bytes. *cut is set when something was left out. Returns
+// the number of lines, 0 for a block without bullets, or -1 when the notes have no block.
+int update_changelog_lines(const char *body, char *out, size_t size, int max_lines, int *cut);
 #endif

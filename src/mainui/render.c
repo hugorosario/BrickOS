@@ -2857,11 +2857,73 @@ static void notice_window(struct mainui_renderer *r, struct mainui_frontend *fe,
 
 static void brickos_bevel(struct mainui_renderer *r, int x, int y, int w, int h, int raised);
 
-// A settings extension's output: its lines from the top line the view scrolled to, and its
-// state. Stock draws it as a settings screen, BrickOS as a panel under its app bar.
+// The output view's rows: each line is broken at the last space that fits the view's width (900
+// pixels in BrickOS, 944 in Stock++), and a word wider than the view takes a row of its own,
+// which drawing cuts with "...". row(), when given, gets each row's index and text, and stops the
+// walk by returning nonzero. Returns the number of rows walked.
+static int text_view_rows(struct mainui_renderer *r, int brickos, const char *text,
+                          int (*row)(void *context, int index, const char *row_text), void *context) {
+    int width = brickos ? 900 : 944, rows = 0;
+    static char line[1024], piece[1024];
+    for (const char *p = text ? text : ""; *p;) {
+        const char *end = strchr(p, '\n');
+        size_t n = end ? (size_t)(end - p) : strlen(p);
+        if (n >= sizeof(line)) n = sizeof(line) - 1;
+        memcpy(line, p, n);
+        line[n] = 0;
+        p = end ? end + 1 : p + strlen(p);
+        size_t start = 0;
+        do {
+            size_t cut = n;
+            if (text_width(&r->small, line + start) > width) {
+                // The longest start that fits and ends before a space, else the first word.
+                size_t best = 0;
+                for (size_t i = start + 1; i < n; ++i) {
+                    if (line[i] != ' ') continue;
+                    memcpy(piece, line + start, i - start);
+                    piece[i - start] = 0;
+                    if (text_width(&r->small, piece) > width) break;
+                    best = i;
+                }
+                if (!best)
+                    for (best = start; best < n && line[best] != ' '; ++best) {}
+                cut = best;
+            }
+            memcpy(piece, line + start, cut - start);
+            piece[cut - start] = 0;
+            if (row && row(context, rows, piece)) return rows + 1;
+            ++rows;
+            start = cut;
+            while (start < n && line[start] == ' ') ++start;
+        } while (start < n);
+    }
+    return rows;
+}
+
+int mainui_render_text_rows(void *renderer, const char *text) {
+    struct mainui_renderer *r = renderer;
+    return text_view_rows(r, r->presentation == MAINUI_PRESENTATION_MATERIAL_YOU, text, NULL, NULL);
+}
+
+struct text_view_draw {
+    struct mainui_renderer *r;
+    int brickos, first, x, y, pitch, width;
+};
+
+static int draw_text_view_row(void *context, int index, const char *row_text) {
+    struct text_view_draw *d = context;
+    if (index < d->first) return 0;
+    char visible[1024];
+    text(d->r, &d->r->small, shorten(&d->r->small, row_text, d->width, visible, sizeof(visible)), d->x,
+         d->y + (index - d->first) * d->pitch, d->brickos ? d->r->material.on_surface : white, LEFT);
+    return index + 1 >= d->first + MAINUI_TEXT_ROWS;
+}
+
+// A settings extension's output: its rows from the top row the view scrolled to, and its state.
+// Stock draws it as a settings screen, BrickOS as a panel under its app bar.
 static void extension_text_window(struct mainui_renderer *r, struct mainui_frontend *fe, const struct mainui_window *w,
                                   int brickos) {
-    char state[64], line[512], visible[512];
+    char state[64];
     const char *text_lines = w->index == fe->ext_view_node && fe->ext_view ? fe->ext_view : "";
     int x = brickos ? 59 : 40, y = brickos ? 147 : 90, pitch = brickos ? 42 : 50, width = brickos ? 900 : 944;
     if (brickos) {
@@ -2874,21 +2936,8 @@ static void extension_text_window(struct mainui_renderer *r, struct mainui_front
         header(r, ext_label(fe, w->index, label, sizeof(label)), 1);
         status_bar(r, fe);
     }
-    const char *p = text_lines;
-    for (int skipped = 0; *p && skipped < w->first; ++skipped) {
-        const char *end = strchr(p, '\n');
-        p = end ? end + 1 : p + strlen(p);
-    }
-    for (int row = 0; *p && row < MAINUI_TEXT_ROWS; ++row) {
-        const char *end = strchr(p, '\n');
-        size_t n = end ? (size_t)(end - p) : strlen(p);
-        if (n >= sizeof(line)) n = sizeof(line) - 1;
-        memcpy(line, p, n);
-        line[n] = 0;
-        text(r, &r->small, shorten(&r->small, line, width, visible, sizeof(visible)), x, y + row * pitch,
-             brickos ? r->material.on_surface : white, LEFT);
-        p = end ? end + 1 : p + strlen(p);
-    }
+    struct text_view_draw draw = {r, brickos, w->first, x, y, pitch, width};
+    text_view_rows(r, brickos, text_lines, draw_text_view_row, &draw);
     if (!brickos) {
         const struct hint list[1] = {{"B", say(fe, 89, "BACK")}};
         hints(r, fe, list, 1, ext_view_state(fe, state, sizeof(state)));

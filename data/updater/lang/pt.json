@@ -1,0 +1,22 @@
+{
+  "display_name": "Português",
+  "Updates": "Atualizações",
+  "BrickOS release": "Versão do BrickOS",
+  "Installed build": "Build instalada",
+  "Status": "Estado",
+  "Automatic checks": "Verificações automáticas",
+  "Check public GitHub releases every six hours. Installation always asks first.": "Procura releases no GitHub a cada 6 horas. Instalar pergunta sempre.",
+  "Check now": "Verificar agora",
+  "What's new": "Novidades",
+  "What the available update changes, before you install it.": "O que muda com a atualização disponível, antes de a instalares.",
+  "Install update": "Instalar atualização",
+  "Confirm the download, then restart when convenient to install the verified package.": "Confirma o download; o pacote instala-se no próximo arranque.",
+  "Component versions": "Versões dos componentes",
+  "Input daemon": "Daemon de entrada",
+  "LED daemon": "Daemon dos LEDs",
+  "In-game menu": "Menu do jogo",
+  "Uninstaller": "Desinstalador",
+  "Updater": "Atualizador",
+  "Setup": "Instalação",
+  "Visual assets": "Recursos visuais"
+}

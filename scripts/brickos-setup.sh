@@ -771,8 +771,10 @@ install_updater() {
     needs_updater || return 0
     rm -rf "$stage" "$old"
     mkdir -p "$stage" || return 1
+    # Files may sit in folders of the Updates folder, as lang/pt.json does.
     for file in $(updater_files); do
-        cp "$package/updater/$file" "$stage/$file" &&
+        mkdir -p "$(dirname "$stage/$file")" &&
+            cp "$package/updater/$file" "$stage/$file" &&
             [ "$(hash_of "$stage/$file")" = "$(packaged_hash "updater/$file")" ] || return 1
     done
     [ ! -e "$updater" ] || mv "$updater" "$old" || return 1

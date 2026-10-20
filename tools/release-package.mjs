@@ -2,7 +2,10 @@
 // Writes a BrickOS release package: a zip whose contents mirror the root of the SD card.
 // Includes the native GitHub updater, its Settings extension and deferred boot activation.
 //
-//   node tools/release-package.mjs [--out DIR]
+//   node tools/release-package.mjs [--out DIR] [--previous VERSIONED.zip|versions.json]
+//
+// With --previous, a release build, it also refuses a release or component version that does
+// not increase as it should, and a release with no valid entry in CHANGELOG.md.
 //
 // It collects the built input daemon, OSD, LED daemon, and menu library from bin/, the on-device setup,
 // the component helpers, the start and launch templates, the boot script, every boot logo in
@@ -29,6 +32,7 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import zlib from 'node:zlib';
 import { checkGenerated, componentManifest, compareManifests } from './component-versions.mjs';
+import { changelogEntry } from './changelog.mjs';
 
 export const PACKAGE_DIR = 'BrickOS/package';
 export const BOOT_SCRIPT = 'System/starts/brickos-00-setup.sh';
@@ -46,6 +50,7 @@ export const PACKAGED_FILES = [
   ['updater/brickos-update', 'bin/brickos-update', 'elf'],
   ['updater/Updates.json', 'data/updater/Updates.json', 'data'],
   ['updater/icon.png', 'data/updater/icon.png', 'data'],
+  ['updater/lang/pt.json', 'data/updater/lang/pt.json', 'data'],
   ['updater/menu.sh', 'scripts/update-menu.sh', 'script'],
   ['updater/boot.sh', 'scripts/update-boot.sh', 'script'],
   ['setup.sh', 'scripts/brickos-setup.sh', 'script'],
@@ -401,8 +406,9 @@ export function verifyEntries(entries) {
   return { build, manifest };
 }
 
-// Builds the package and writes it to OUT/brickos-<build>.zip, only once it verifies.
-export async function createPackage({ root = process.cwd(), out = 'dist', sources, previous } = {}) {
+// Builds the package and writes it to OUT/brickos-<build>.zip, only once it verifies. A release
+// build, given the previous release, also needs the release's entry in CHANGELOG.md (or changelog).
+export async function createPackage({ root = process.cwd(), out = 'dist', sources, previous, changelog } = {}) {
   const files = await collectFiles({ root, sources });
   const versions = JSON.parse(files.find(file => file.path === 'versions.json').bytes);
   if (previous) {
@@ -415,6 +421,7 @@ export async function createPackage({ root = process.cwd(), out = 'dist', source
       old = JSON.parse(entry.data);
     } else old = JSON.parse(bytes);
     compareManifests(old, versions);
+    changelogEntry(versions.release, root, changelog && resolve(root, changelog));
   }
   const { build, manifest, entries } = packageEntries(files);
   const zip = createZip(entries);

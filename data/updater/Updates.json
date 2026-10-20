@@ -7,6 +7,7 @@
     { "label": "Status", "type": "info", "value": "{{update_status}}", "load": "sh ./menu.sh status" },
     { "label": "Automatic checks", "type": "toggle", "selected": 1, "load": "sh ./menu.sh auto-status", "execute": "sh ./menu.sh auto", "description": "Check public GitHub releases every six hours. Installation always asks first." },
     { "label": "Check now", "type": "cmd", "execute": "./brickos-update check", "output": "line" },
+    { "label": "What's new", "id": "whats-new", "type": "cmd", "disable": true, "execute": "./brickos-update changelog", "output": "full", "description": "What the available update changes, before you install it." },
     { "label": "Install update", "type": "cmd", "execute": "./brickos-update prepare", "output": "full", "description": "Confirm the download, then restart when convenient to install the verified package." },
     { "label": "Component versions", "type": "menu", "menu": [
       { "label": "MainUI / Stock++ / BrickOS", "type": "info", "value": "{{version_mainui}}", "load": "sh ./menu.sh status" },

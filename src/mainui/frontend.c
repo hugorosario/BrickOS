@@ -4896,6 +4896,11 @@ static void ext_view_append(struct mainui_frontend *fe, const char *text) {
     memcpy(fe->ext_view + fe->ext_view_length, text, n);
     fe->ext_view_length += n;
     fe->ext_view[fe->ext_view_length] = 0;
+    // The view scrolls by rows: with the renderer's hook, a long line counts every row it wraps to.
+    if (fe->text_rows) {
+        fe->ext_view_lines = fe->text_rows(fe->text_rows_context, fe->ext_view);
+        return;
+    }
     fe->ext_view_lines = 0;
     for (size_t i = 0; i < fe->ext_view_length; ++i) fe->ext_view_lines += fe->ext_view[i] == '\n';
     if (fe->ext_view_length && fe->ext_view[fe->ext_view_length - 1] != '\n') ++fe->ext_view_lines;
